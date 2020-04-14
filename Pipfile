@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pandas = "*"
+fbprophet = "*"
+
+[dev-packages]
+black = "==19.10b0"
+flake8 = "*"
+mypy = "*"
+pre-commit = "*"
+flake8-mypy = "*"
+pydocstyle = "*"
+
+[requires]
+python_version = "3.7"
+
+[packages.e1839a8]
+path = "."
+editable = true

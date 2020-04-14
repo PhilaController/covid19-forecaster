@@ -1,0 +1,339 @@
+naics_sector,total_entities,total,fiscal_year
+All Other Sectors,1592.0,5662624,2006
+Unclassified,2222.0,1573830,2006
+Motor Vehicle Sales Tax,,14737500,2006
+Services other than repair services,3282.0,6574410,2006
+Repair services,1258.0,2152131,2006
+Rentals except car and truck rentals,519.0,2437671,2006
+Car and truck rental,142.0,3319012,2006
+Other retail,5441.0,12808121,2006
+"Office supplies stores, retail",85.0,1314346,2006
+"Department stores, retail",27.0,4668405,2006
+"Pharmacies, retail",135.0,2118187,2006
+"Liquor and beer stores, retail",111.0,2656264,2006
+"Convenience stores, retail",289.0,1536296,2006
+"Supermarkets, retail",886.0,2501649,2006
+"Home centers, retail",21.0,3640328,2006
+"Computer and software stores, retail",125.0,1691849,2006
+"Appliance, other electronics, retail",182.0,1911381,2006
+Furniture stores retail,205.0,1987973,2006
+Total Retail,7507.0,36834801,2006
+Wholesale,1995.0,9659286,2006
+Telecommunications,219.0,11018957,2006
+Public Utilities,25.0,6797808,2006
+Manufacturing,1419.0,5449253,2006
+Construction,737.0,2191945,2006
+Hotels,94.0,6704547,2006
+"Restaurants, bars, concessionaires and caterers",3986.0,13979342,2006
+"Liquor and beer stores, retail",118.0,2795347,2007
+Construction,747.0,2217423,2007
+"Restaurants, bars, concessionaires and caterers",3987.0,14705596,2007
+Hotels,98.0,7055084,2007
+Services other than repair services,3287.0,7212284,2007
+Repair services,1234.0,2258781,2007
+Rentals except car and truck rentals,517.0,2809679,2007
+Car and truck rental,143.0,3659370,2007
+Other retail,5326.0,12993997,2007
+"Office supplies stores, retail",80.0,1458355,2007
+"Department stores, retail",23.0,4619850,2007
+"Pharmacies, retail",130.0,2130955,2007
+"Convenience stores, retail",317.0,1611185,2007
+"Supermarkets, retail",926.0,2561856,2007
+"Home centers, retail",22.0,3788219,2007
+"Computer and software stores, retail",129.0,2121907,2007
+"Appliance, other electronics, retail",185.0,1985264,2007
+Furniture stores retail,196.0,2068631,2007
+Total Retail,7452.0,38135565,2007
+Wholesale,2001.0,10342313,2007
+Telecommunications,200.0,11829971,2007
+Public Utilities,30.0,7154915,2007
+Manufacturing,1434.0,5232133,2007
+Motor Vehicle Sales Tax,,15522500,2007
+All Other Sectors,1628.0,5996139,2007
+Unclassified,2395.0,2077418,2007
+Construction,734.0,2617621,2008
+Motor Vehicle Sales Tax,,14133833,2008
+Unclassified,2628.0,2553912,2008
+All Other Sectors,1629.0,6161715,2008
+"Restaurants, bars, concessionaires and caterers",3876.0,15272622,2008
+Hotels,87.0,7356408,2008
+Services other than repair services,3328.0,8064773,2008
+Repair services,1219.0,2353849,2008
+Rentals except car and truck rentals,498.0,2743962,2008
+Car and truck rental,139.0,3852800,2008
+Other retail,5285.0,13312423,2008
+"Office supplies stores, retail",75.0,1461642,2008
+"Department stores, retail",25.0,5024792,2008
+"Liquor and beer stores, retail",127.0,2880217,2008
+"Convenience stores, retail",343.0,1640702,2008
+"Supermarkets, retail",925.0,2615931,2008
+"Home centers, retail",27.0,3966638,2008
+"Computer and software stores, retail",127.0,1665295,2008
+"Appliance, other electronics, retail",173.0,1955382,2008
+Furniture stores retail,181.0,2071848,2008
+Total Retail,7412.0,38711993,2008
+Wholesale,1988.0,11023248,2008
+Telecommunications,200.0,12459213,2008
+Public Utilities,26.0,6872573,2008
+Manufacturing,1454.0,5349771,2008
+"Pharmacies, retail",124.0,2117123,2008
+"Department stores, retail",25.0,5118072,2009
+"Office supplies stores, retail",72.0,1339761,2009
+Other retail,5036.0,12545011,2009
+"Restaurants, bars, concessionaires and caterers",3754.0,15124380,2009
+Repair services,1166.0,2257780,2009
+Services other than repair services,3179.0,7006597,2009
+Hotels,90.0,6643065,2009
+"Pharmacies, retail",127.0,2109596,2009
+Rentals except car and truck rentals,467.0,2593370,2009
+"Liquor and beer stores, retail",117.0,3007299,2009
+Furniture stores retail,179.0,1771447,2009
+"Supermarkets, retail",923.0,2683482,2009
+"Home centers, retail",29.0,3673516,2009
+"Computer and software stores, retail",119.0,1308309,2009
+"Appliance, other electronics, retail",170.0,1808465,2009
+All Other Sectors,1580.0,6142000,2009
+Total Retail,7144.0,37091340,2009
+Wholesale,1951.0,9875544,2009
+Telecommunications,196.0,12860272,2009
+Public Utilities,25.0,7043684,2009
+Manufacturing,1452.0,4542686,2009
+Construction,730.0,2382068,2009
+"Convenience stores, retail",347.0,1726382,2009
+Motor Vehicle Sales Tax,,11297000,2009
+Car and truck rental,142.0,3539988,2009
+Unclassified,2800.0,2364742,2009
+Total Retail,7419.0,64991132,2010
+Furniture stores retail,182.0,3010184,2010
+"Appliance, other electronics, retail",172.0,3122292,2010
+"Computer and software stores, retail",118.0,2222927,2010
+"Home centers, retail",30.0,6390923,2010
+"Supermarkets, retail",966.0,4579733,2010
+"Convenience stores, retail",360.0,3432948,2010
+"Liquor and beer stores, retail",105.0,5266111,2010
+"Pharmacies, retail",139.0,2749274,2010
+"Department stores, retail",27.0,9399438,2010
+Wholesale,1986.0,14869947,2010
+"Office supplies stores, retail",65.0,2135557,2010
+Construction,760.0,2953054,2010
+Car and truck rental,133.0,5445996,2010
+Rentals except car and truck rentals,490.0,3471335,2010
+Repair services,1183.0,4081198,2010
+Services other than repair services,3272.0,10790009,2010
+Hotels,95.0,7480178,2010
+"Restaurants, bars, concessionaires and caterers",3864.0,25944562,2010
+All Other Sectors,1660.0,9210313,2010
+Unclassified,2836.0,3404577,2010
+Motor Vehicle Sales Tax,,20242778,2010
+Other retail,5255.0,22681743,2010
+Telecommunications,209.0,21072437,2010
+Public Utilities,26.0,10918589,2010
+Manufacturing,1510.0,7608119,2010
+Unclassified,2538.0,3348140,2011
+All Other Sectors,1700.0,10094147,2011
+"Restaurants, bars, concessionaires and caterers",3993.0,32105063,2011
+Hotels,97.0,7862702,2011
+Services other than repair services,3460.0,13363853,2011
+Repair services,1253.0,4994463,2011
+Rentals except car and truck rentals,503.0,4457656,2011
+Car and truck rental,113.0,6608755,2011
+Other retail,5403.0,26396313,2011
+"Office supplies stores, retail",71.0,2425463,2011
+"Department stores, retail",29.0,10597402,2011
+"Pharmacies, retail",157.0,4118805,2011
+"Liquor and beer stores, retail",118.0,6158290,2011
+"Convenience stores, retail",460.0,4166098,2011
+"Supermarkets, retail",1022.0,5164155,2011
+"Home centers, retail",25.0,7377143,2011
+"Computer and software stores, retail",128.0,3165114,2011
+"Appliance, other electronics, retail",165.0,3628924,2011
+Furniture stores retail,178.0,3572782,2011
+Total Retail,7756.0,76770489,2011
+Wholesale,2322.0,19120539,2011
+Telecommunications,249.0,22924916,2011
+Public Utilities,37.0,11902150,2011
+Motor Vehicle Sales Tax,,27212667,2011
+Construction,928.0,4248240,2011
+Manufacturing,1607.0,8823226,2011
+Construction,952.0,4752542,2012
+Manufacturing,1610.0,8667519,2012
+Public Utilities,40.0,10715371,2012
+Telecommunications,245.0,22373760,2012
+Wholesale,2313.0,19591059,2012
+Total Retail,7746.0,79906703,2012
+Furniture stores retail,172.0,3769204,2012
+"Appliance, other electronics, retail",165.0,3367280,2012
+"Computer and software stores, retail",129.0,3420984,2012
+"Home centers, retail",27.0,7559585,2012
+"Supermarkets, retail",961.0,5212783,2012
+"Convenience stores, retail",500.0,4412519,2012
+"Liquor and beer stores, retail",124.0,6495728,2012
+"Department stores, retail",28.0,10704285,2012
+"Office supplies stores, retail",68.0,2396272,2012
+Other retail,5409.0,28384036,2012
+Car and truck rental,105.0,6656542,2012
+Rentals except car and truck rentals,501.0,4301008,2012
+Repair services,1235.0,4899075,2012
+Services other than repair services,3505.0,14709668,2012
+Hotels,98.0,8716582,2012
+"Restaurants, bars, concessionaires and caterers",3925.0,33652634,2012
+All Other Sectors,1747.0,10597614,2012
+Unclassified,2746.0,3762841,2012
+Motor Vehicle Sales Tax,,30297333,2012
+"Pharmacies, retail",163.0,4184027,2012
+"Pharmacies, retail",165.0,4052227,2013
+Motor Vehicle Sales Tax,,30390000,2013
+Construction,941.0,5288153,2013
+Public Utilities,65.0,10223598,2013
+Telecommunications,218.0,21439312,2013
+Wholesale,1916.0,19926665,2013
+Total Retail,8073.0,81519557,2013
+Furniture stores retail,178.0,3777417,2013
+"Appliance, other electronics, retail",181.0,3108159,2013
+"Computer and software stores, retail",135.0,4609463,2013
+"Home centers, retail",27.0,7516080,2013
+"Supermarkets, retail",957.0,5299520,2013
+"Convenience stores, retail",567.0,4672396,2013
+Manufacturing,1665.0,8721426,2013
+Unclassified,2891.0,4173867,2013
+"Department stores, retail",28.0,10441722,2013
+"Office supplies stores, retail",61.0,2217776,2013
+Other retail,5638.0,29175602,2013
+Car and truck rental,103.0,7020024,2013
+Rentals except car and truck rentals,565.0,4356993,2013
+Repair services,1301.0,5198143,2013
+Services other than repair services,3801.0,16139439,2013
+Hotels,92.0,9104480,2013
+"Restaurants, bars, concessionaires and caterers",3963.0,34543037,2013
+All Other Sectors,1827.0,11798043,2013
+"Liquor and beer stores, retail",136.0,6649195,2013
+Furniture stores retail,176.0,3691712,2014
+Total Retail,8008.0,81687868,2014
+Wholesale,1880.0,20712701,2014
+Services other than repair services,3797.0,17996498,2014
+Public Utilities,67.0,10851898,2014
+Manufacturing,1661.0,8932703,2014
+Construction,920.0,5357120,2014
+"Appliance, other electronics, retail",176.0,2788700,2014
+Telecommunications,218.0,20149577,2014
+"Computer and software stores, retail",120.0,4770548,2014
+"Department stores, retail",28.0,10240481,2014
+"Supermarkets, retail",902.0,5418350,2014
+"Convenience stores, retail",590.0,4657493,2014
+"Liquor and beer stores, retail",147.0,6688387,2014
+"Pharmacies, retail",177.0,4087461,2014
+"Office supplies stores, retail",60.0,1979784,2014
+Other retail,5608.0,29781228,2014
+Car and truck rental,104.0,7401468,2014
+Rentals except car and truck rentals,540.0,4554141,2014
+Repair services,1289.0,5260564,2014
+All Other Sectors,1842.0,12626415,2014
+"Home centers, retail",24.0,7583726,2014
+Unclassified,3055.0,3688456,2014
+"Restaurants, bars, concessionaires and caterers",3922.0,35812278,2014
+Motor Vehicle Sales Tax,,32823000,2014
+Hotels,92.0,9276074,2014
+"Restaurants, bars, concessionaires and caterers",2637.0,34502428,2015
+Hotels,89.0,9195607,2015
+Services other than repair services,2203.0,16518774,2015
+Repair services,886.0,5308800,2015
+Rentals except car and truck rentals,385.0,4553050,2015
+Car and truck rental,87.0,7698409,2015
+Other retail,2660.0,29453222,2015
+"Office supplies stores, retail",42.0,1903074,2015
+"Department stores, retail",19.0,10226457,2015
+"Pharmacies, retail",38.0,3863442,2015
+"Convenience stores, retail",154.0,4026074,2015
+"Home centers, retail",23.0,8382955,2015
+"Computer and software stores, retail",93.0,4636969,2015
+"Appliance, other electronics, retail",94.0,2766941,2015
+Furniture stores retail,128.0,4020509,2015
+Total Retail,3578.0,80905723,2015
+Wholesale,1568.0,21849869,2015
+Telecommunications,187.0,19010115,2015
+Public Utilities,53.0,9112258,2015
+Manufacturing,1088.0,8962672,2015
+Construction,695.0,5843015,2015
+"Liquor and beer stores, retail",99.0,6563944,2015
+"Supermarkets, retail",228.0,5062136,2015
+Unclassified,933.0,710179,2015
+All Other Sectors,1010.0,12466313,2015
+Motor Vehicle Sales Tax,,35806085,2015
+"Restaurants, bars, concessionaires and caterers",2800.0,37504746,2016
+Construction,772.0,7151643,2016
+Manufacturing,1135.0,8254960,2016
+Public Utilities,57.0,8390502,2016
+Telecommunications,201.0,18774299,2016
+Wholesale,1706.0,24290939,2016
+Total Retail,3914.0,83878313,2016
+Furniture stores retail,127.0,4273710,2016
+"Appliance, other electronics, retail",110.0,2623905,2016
+"Computer and software stores, retail",95.0,5020270,2016
+"Home centers, retail",22.0,8841116,2016
+"Supermarkets, retail",255.0,4892492,2016
+"Convenience stores, retail",185.0,4229249,2016
+"Liquor and beer stores, retail",114.0,6706075,2016
+"Pharmacies, retail",38.0,3839583,2016
+"Department stores, retail",18.0,9338267,2016
+"Office supplies stores, retail",40.0,1587149,2016
+Other retail,2910.0,32526497,2016
+Car and truck rental,91.0,8167644,2016
+Rentals except car and truck rentals,410.0,4861893,2016
+Repair services,925.0,5552811,2016
+Services other than repair services,2444.0,18213468,2016
+Hotels,85.0,9142810,2016
+All Other Sectors,1119.0,14063737,2016
+Unclassified,1358.0,1270512,2016
+Motor Vehicle Sales Tax,,38127602,2016
+Motor Vehicle Sales Tax,,38444000,2017
+Unclassified,1434.0,935113,2017
+Other retail,3029.0,32478611,2017
+"Office supplies stores, retail",42.0,1819252,2017
+"Department stores, retail",19.0,10460051,2017
+"Pharmacies, retail",38.0,3891345,2017
+"Liquor and beer stores, retail",126.0,6935684,2017
+"Supermarkets, retail",239.0,4906762,2017
+"Home centers, retail",23.0,9066800,2017
+"Computer and software stores, retail",102.0,5745257,2017
+"Appliance, other electronics, retail",124.0,2450915,2017
+Furniture stores retail,140.0,4160946,2017
+"Convenience stores, retail",186.0,4518142,2017
+All Other Sectors,1213.0,15375457,2017
+Total Retail,4068.0,86433765,2017
+Manufacturing,1286.0,9555044,2017
+Public Utilities,71.0,9806327,2017
+Telecommunications,225.0,22068353,2017
+Wholesale,1799.0,24732979,2017
+Car and truck rental,88.0,8569943,2017
+Construction,811.0,7068524,2017
+Repair services,984.0,5880400,2017
+Services other than repair services,2708.0,19480856,2017
+Hotels,89.0,10231551,2017
+"Restaurants, bars, concessionaires and caterers",2978.0,40533460,2017
+Rentals except car and truck rentals,432.0,5377770,2017
+"Restaurants, bars, concessionaires and caterers",3024.0,42624988,2018
+Hotels,105.0,10459737,2018
+Services other than repair services,2851.0,22136605,2018
+Repair services,980.0,5996920,2018
+Rentals except car and truck rentals,422.0,5967776,2018
+Wholesale,1871.0,25816922,2018
+Telecommunications,223.0,21337194,2018
+Public Utilities,71.0,11275477,2018
+Manufacturing,1343.0,10001620,2018
+All Other Sectors,1244.0,17619835,2018
+Car and truck rental,92.0,9069465,2018
+Total Retail,4105.0,91144786,2018
+Motor Vehicle Sales Tax,,37386667,2018
+"Appliance, other electronics, retail",136.0,2645119,2018
+"Computer and software stores, retail",97.0,6002813,2018
+"Home centers, retail",18.0,9338358,2018
+"Supermarkets, retail",238.0,4905719,2018
+"Convenience stores, retail",184.0,4553224,2018
+"Liquor and beer stores, retail",127.0,7197060,2018
+"Pharmacies, retail",39.0,3849583,2018
+"Department stores, retail",21.0,10960210,2018
+"Office supplies stores, retail",44.0,1699118,2018
+Other retail,3061.0,35703248,2018
+Unclassified,1659.0,1138323,2018
+Furniture stores retail,140.0,4290334,2018
+Construction,819.0,7084417,2018
