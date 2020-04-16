@@ -6,6 +6,8 @@ name = "pypi"
 [packages]
 pandas = "*"
 fbprophet = "*"
+phila-style = "*"
+matplotlib = "*"
 
 [dev-packages]
 black = "==19.10b0"
@@ -14,6 +16,7 @@ mypy = "*"
 pre-commit = "*"
 flake8-mypy = "*"
 pydocstyle = "*"
+jupyterlab = "*"
 
 [requires]
 python_version = "3.7"
