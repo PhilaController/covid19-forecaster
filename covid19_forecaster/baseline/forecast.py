@@ -7,13 +7,15 @@ from .core import (
 from phila_style.matplotlib import get_theme
 from phila_style import get_digital_standards
 from matplotlib import pyplot as plt
+import pickle
+from pathlib import Path
 
 
 def _get_monthly_total(df):
     return df.groupby("date")["total"].sum().sort_index()
 
 
-class RevenueForecast(object):
+class BaselineForecast(object):
     """
     A baseline revenue forecast, calibrated to the
     fiscal year totals presented in the proposed FY21-FY25
@@ -43,6 +45,22 @@ class RevenueForecast(object):
         self.raw_forecast = project_tax_revenue(
             tax_name, self.historical, seasonality_mode=seasonality_mode
         )
+
+        # Readjust for sales
+        if tax_name == "sales":
+
+            # Subtract from forecast
+            valid = self.raw_forecast["fiscal_year"] >= 2015
+            for col in ["total", "lower", "upper"]:
+                self.raw_forecast.loc[valid, col] -= (
+                    120e6 / 12 / self.raw_forecast["naics_sector"].nunique()
+                )
+
+            # Subtract from historical
+            valid = self.historical["fiscal_year"] >= 2015
+            self.historical.loc[valid, "total"] -= (
+                120e6 / 12 / self.historical["naics_sector"].nunique()
+            )
 
         # The calibrated forecast
         self.forecast = calibrate_forecast(tax_name, self.raw_forecast)
@@ -136,3 +154,10 @@ class RevenueForecast(object):
             ax.set_ylabel("")
 
             return fig, ax
+
+    def save(self, filename):
+        pickle.dump(self, Path(filename).open("wb"))
+
+    @staticmethod
+    def load(filename):
+        return pickle.load(Path(filename).open("rb"))

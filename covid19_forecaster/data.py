@@ -155,7 +155,7 @@ def load_monthly_collections(kind: str) -> pd.DataFrame:
         out = pd.concat(
             [
                 out,
-                out.query("name in ['wage', 'earnings']")
+                out.query("name in ['wage_city', 'earnings_city']")
                 .groupby(
                     [
                         "month",
@@ -167,7 +167,7 @@ def load_monthly_collections(kind: str) -> pd.DataFrame:
                 )["total"]
                 .sum()
                 .reset_index()
-                .assign(name="wage_earnings"),
+                .assign(name="wage_earnings_city"),
             ],
             axis=0,
         ).sort_values(["fiscal_year", "fiscal_month"])

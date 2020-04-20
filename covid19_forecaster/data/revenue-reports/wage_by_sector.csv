@@ -2771,7 +2771,7 @@ Telecommunication,2015,2334495.0,jun,6,2015
 Wholesale Trade,2015,2773467.0,jun,6,2015
 Retail Trade,2015,6101184.0,jun,6,2015
 Banking & Credit Unions,2015,2243998.0,jun,6,2015
-Securities / Financial Investments,2015,5850711.0,jun,6,2015
+Securities / Financial Investments,2015,,jun,6,2015
 Insurance,2015,3216873.0,jun,6,2015
 "Real Estate, Rental and Leasing",2015,1728634.0,jun,6,2015
 Health and Social Services,2015,25871545.0,jun,6,2015
@@ -5719,3 +5719,55 @@ State Government (PA),2020,1331488.0,feb,2,2020
 Federal Government (includes US Post Office),2020,3087594.0,feb,2,2020
 Other Governments,2020,219062.0,feb,2,2020
 Unclassified Accounts,2020,341159.0,feb,2,2020
+Construction,2020,5119193.0,mar,3,2020
+Manufacturing (includes headquarter offices & factories),2020,13182504.0,mar,3,2020
+"Chemicals, Petroleum Refining",2020,3398943.0,mar,3,2020
+Pharmaceuticals,2020,4458546.0,mar,3,2020
+Transportation Equipment,2020,793806.0,mar,3,2020
+Food & Beverage Products,2020,1340370.0,mar,3,2020
+"Machinery, Electronic, and Other Electric Equipment",2020,729419.0,mar,3,2020
+Metal Manufacturing,2020,626521.0,mar,3,2020
+Miscellaneous Manufacturing,2020,1834898.0,mar,3,2020
+Public Utilities,2020,2137413.0,mar,3,2020
+Transportation and Warehousing,2020,5473414.0,mar,3,2020
+Telecommunication,2020,11396229.0,mar,3,2020
+"Publishing, Broadcasting, and Other Information",2020,2234797.0,mar,3,2020
+Wholesale Trade,2020,3240083.0,mar,3,2020
+Retail Trade,2020,7320604.0,mar,3,2020
+Banking & Credit Unions,2020,4465666.0,mar,3,2020
+Securities / Financial Investments,2020,6129059.0,mar,3,2020
+Insurance,2020,13702853.0,mar,3,2020
+"Real Estate, Rental and Leasing",2020,3152661.0,mar,3,2020
+Health and Social Services,2020,31268836.0,mar,3,2020
+Hospitals,2020,16146391.0,mar,3,2020
+"Doctors, Dentists, and Other Health Practitioners",2020,3157119.0,mar,3,2020
+Outpatient Care Centers and Other Health Services,2020,4795590.0,mar,3,2020
+Nursing & Personal Care Facilities,2020,2921770.0,mar,3,2020
+Social Services,2020,4247966.0,mar,3,2020
+Education,2020,15837990.0,mar,3,2020
+College and Universities,2020,12464220.0,mar,3,2020
+"Elementary, Secondary Schools (except public schools)",2020,2369992.0,mar,3,2020
+Other Educational Services,2020,1003778.0,mar,3,2020
+Professional  Services,2020,18732088.0,mar,3,2020
+Legal Services,2020,5472326.0,mar,3,2020
+Management Consulting,2020,4225961.0,mar,3,2020
+Engineering & Architectural Services,2020,1801298.0,mar,3,2020
+Computer,2020,1716955.0,mar,3,2020
+"Accounting, Auditing, Bookkeeping",2020,2152399.0,mar,3,2020
+Advertising and Other Professional Services,2020,3363149.0,mar,3,2020
+Hotels,2020,893112.0,mar,3,2020
+Restaurants,2020,3707046.0,mar,3,2020
+Sport Teams,2020,1470319.0,mar,3,2020
+"Arts, Entertainment, and Other Recreation",2020,1547508.0,mar,3,2020
+Other Sectors,2020,10528707.0,mar,3,2020
+Membership Organizations,2020,2906362.0,mar,3,2020
+Employment/Outsourcing Agencies,2020,2609281.0,mar,3,2020
+Security and Investigation Services,2020,777025.0,mar,3,2020
+Services to Buildings,2020,736428.0,mar,3,2020
+Miscellaneous Sectors,2020,3499611.0,mar,3,2020
+Government,2020,26188373.0,mar,3,2020
+State Government (PA),2020,1076153.0,mar,3,2020
+"City, School District, Local Quasi Govt.",2020,12827922.0,mar,3,2020
+Federal Government (includes US Post Office),2020,12116513.0,mar,3,2020
+Other Governments,2020,167783.0,mar,3,2020
+Unclassified Accounts,2020,346430.0,mar,3,2020

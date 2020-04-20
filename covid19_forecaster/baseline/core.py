@@ -27,9 +27,9 @@ def load_historical_collections(tax_name):
 
     # Select the tax we are loading
     if tax_name == "wage":
-        collections = collections.query("name == 'wage_earnings'").copy()
+        collections = collections.query("name == 'wage_earnings_city'").copy()
     elif tax_name == "npt":
-        collections = collections.query("name == 'net_profits'").copy()
+        collections = collections.query("name == 'net_profits_city'").copy()
     elif tax_name == "rtt":
         collections = collections.query(
             "name == 'real_estate_transfer'"
@@ -182,12 +182,9 @@ def project_tax_revenue(
 
         # Forecast until end of FY 2025
         periods = (
-            int(
-                (pd.to_datetime("6/30/25") - N["ds"].max())
-                / np.timedelta64(1, "M")
-            )
-            + 1
-        )
+            pd.to_datetime("6/30/25").to_period("M")
+            - N["ds"].max().to_period("M")
+        ).n
 
         # Forecast
         future = m.make_future_dataframe(periods=periods, freq="M")

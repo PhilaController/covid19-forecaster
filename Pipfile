@@ -8,6 +8,7 @@ pandas = "*"
 fbprophet = "*"
 phila-style = "*"
 matplotlib = "*"
+openpyxl = "*"
 
 [dev-packages]
 black = "==19.10b0"
@@ -17,6 +18,7 @@ pre-commit = "*"
 flake8-mypy = "*"
 pydocstyle = "*"
 jupyterlab = "*"
+seaborn = "*"
 
 [requires]
 python_version = "3.7"
