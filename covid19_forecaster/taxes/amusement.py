@@ -10,16 +10,16 @@ class AmusementTax(ScenarioForecast):
     ASSUMPTIONS = {
         "moderate": np.concatenate(
             [
-                np.repeat(0.5, 3),
-                np.repeat(0.3, 3),
+                np.repeat(0.7, 3),
+                np.repeat(0.4, 3),
                 np.repeat(0.25, 3),
                 np.repeat(0.15, 12),
             ]
         ),
         "severe": np.concatenate(
             [
-                np.repeat(0.75, 3),
-                np.repeat(0.5, 3),
+                np.repeat(0.9, 3),
+                np.repeat(0.6, 3),
                 np.repeat(0.3, 3),
                 np.repeat(0.2, 3),
                 np.repeat(0.15, 9),

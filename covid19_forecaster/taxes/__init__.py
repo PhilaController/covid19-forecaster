@@ -6,6 +6,7 @@ from .soda import SodaTax
 from .wage import WageTax
 from .birt import BIRT
 from .npt import NPT
+from .. import DATA_DIR
 
 TAXES = [
     WageTax,
@@ -19,15 +20,31 @@ TAXES = [
 ]
 
 
-def run_forecasts(fresh=False):
+def run_forecasts(filename, fresh=False):
     """
-    Run forecasts and update the assumptions
-    """
+    Run forecasts and update the assumptions.
 
+    Parameters
+    ----------
+    filename : str
+        the name of the file to save
+    fresh : bool, optional
+        run fresh baseline forecasts?
+    """
+    import shutil
+
+    # Save the new forecasts
     for tax in TAXES:
         tax(fresh=fresh).save_to_template()
 
+    # Save the assumptions page too
     save_quarterly_declines()
+
+    # Make the copy
+    template_file = (
+        DATA_DIR / "templates" / "Budget Impact Analysis Template.xlsx"
+    )
+    shutil.copy(template_file, filename)
 
 
 def save_quarterly_declines():
@@ -36,7 +53,6 @@ def save_quarterly_declines():
     """
 
     import openpyxl
-    from .. import DATA_DIR
     import pandas as pd
 
     sheet_name = "Assumptions"

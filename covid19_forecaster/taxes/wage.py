@@ -35,8 +35,8 @@ class WageTax(ScenarioForecast):
             "moderate": 0.05,
             "severe": 0.07,
         },
-        "Wholesale Trade": {"moderate": 0.25, "severe": 0.5},
-        "Retail Trade": {"moderate": 0.15, "severe": 0.30},
+        "Wholesale Trade": {"moderate": 0.25, "severe": 0.50},
+        "Retail Trade": {"moderate": 0.25, "severe": 0.50},
         "Banking & Credit Unions": {"moderate": 0.05, "severe": 0.07},
         "Securities / Financial Investments": {
             "moderate": 0.1,
@@ -44,18 +44,18 @@ class WageTax(ScenarioForecast):
         },
         "Insurance": {"moderate": 0.05, "severe": 0.07},
         "Real Estate, Rental and Leasing": {"moderate": 0.05, "severe": 0.07},
-        "Health and Social Services": {"moderate": 0.07, "severe": 0.15},
-        "Education": {"moderate": 0.07, "severe": 0.15},
+        "Health and Social Services": {"moderate": 0.10, "severe": 0.20},
+        "Education": {"moderate": 0.05, "severe": 0.10},
         "Professional  Services": {"moderate": 0.05, "severe": 0.07},
         "Hotels": {"moderate": 0.25, "severe": 0.50},
-        "Restaurants": {"moderate": 0.5, "severe": 0.75},
+        "Restaurants": {"moderate": 0.7, "severe": 0.9},
         "Sport Teams": {"moderate": 0.25, "severe": 0.50},
         "Arts, Entertainment, and Other Recreation": {
-            "moderate": 0.2,
-            "severe": 0.3,
+            "moderate": 0.25,
+            "severe": 0.5,
         },
         "Other Sectors": {"moderate": 0.15, "severe": 0.25},
-        "Government": {"moderate": 0, "severe": 0.05},
+        "Government": {"moderate": 0.025, "severe": 0.05},
         "Unclassified Accounts": {"moderate": 0.05, "severe": 0.07},
     }
 
@@ -91,9 +91,15 @@ class WageTax(ScenarioForecast):
         else:
             recovery_rate = self.RECOVERY_RATES[scenario]["other"]
 
-        return initial_drop * (1 - recovery_rate) ** (
-            month_offset * self.RECOVERY_SPEED
-        )
+        if scenario == "moderate" and month_offset in [0, 1]:
+            return initial_drop
+        elif scenario == "severe" and month_offset in [0, 1, 2]:
+            return initial_drop
+        else:
+
+            return initial_drop * (1 - recovery_rate) ** (
+                month_offset * self.RECOVERY_SPEED
+            )
 
     def save_to_template(self):
         """
