@@ -47,7 +47,7 @@ class WageTax(ScenarioForecast):
         "Health and Social Services": {"moderate": 0.10, "severe": 0.20},
         "Education": {"moderate": 0.10, "severe": 0.20},
         "Professional  Services": {"moderate": 0.05, "severe": 0.10},
-        "Hotels": {"moderate": 0.25, "severe": 0.50},
+        "Hotels": {"moderate": 0.5, "severe": 0.75},
         "Restaurants": {"moderate": 0.7, "severe": 0.9},
         "Sport Teams": {"moderate": 0.25, "severe": 0.50},
         "Arts, Entertainment, and Other Recreation": {
