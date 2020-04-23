@@ -32,5 +32,11 @@ setup(
     description=DESCRIPTION,
     license="MIT",
     python_requires=">=3.6",
-    install_requires=["pandas", "fbprophet"],
+    install_requires=[
+        "pandas",
+        "fbprophet",
+        "phila-style",
+        "matplotlib",
+        "openpyxl",
+    ],
 )
