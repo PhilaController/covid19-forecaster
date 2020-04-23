@@ -27,7 +27,7 @@ pip install pipenv
 ```bash
 
 # Clone the repository
-git clone git@github.com:PhiladelphiaController/covid19-forecaster.git
+git clone https://github.com/PhiladelphiaController/covid19-forecaster.git
 
 # Change to the new folder
 cd covid19-forecaster
