@@ -21,7 +21,7 @@ BIRT_REVENUES = pd.DataFrame(
 # Projected revenues from FY20 Q2 QCMR
 FY20_REVENUES = {
     "wage": 2195818000,  # This is City + PICA Wage+Earnings
-    "sales": 236228000,  # Add School District total
+    "sales": 236228000,
     "birt": 540945e3,
     "rtt": 338299e3,
     "parking": 101487000,
