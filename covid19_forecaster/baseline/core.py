@@ -27,9 +27,9 @@ def load_historical_collections(tax_name):
 
     # Select the tax we are loading
     if tax_name == "wage":
-        collections = collections.query("name == 'wage_earnings_city'").copy()
+        collections = collections.query("name == 'wage_earnings'").copy()
     elif tax_name == "npt":
-        collections = collections.query("name == 'net_profits_city'").copy()
+        collections = collections.query("name == 'net_profits'").copy()
     elif tax_name == "rtt":
         collections = collections.query(
             "name == 'real_estate_transfer'"
