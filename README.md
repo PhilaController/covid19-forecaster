@@ -1,6 +1,8 @@
 # covid19-forecaster
 
-Forecasting the revenue impact of COVID-19 on the City of Philadelphia's finances
+Analysis toolkit for forecasting the revenue impact of COVID-19 on the City of Philadelphia's finances.
+
+Read the full report: ["Estimates of the Impact of COVID-19 on the City of Philadelphia’s Tax Revenues"](https://controller.phila.gov/philadelphia-audits/covid19-fiscal-impact/).
 
 
 ## Installation
