@@ -1,14 +1,16 @@
-import pandas as pd
-from phila_style.matplotlib import get_theme
-from phila_style import get_digital_standards
-from matplotlib import pyplot as plt
-from abc import ABC, abstractmethod
 import calendar
-import openpyxl
+from abc import ABC, abstractmethod
 from collections import defaultdict
+
+import openpyxl
+import pandas as pd
+from matplotlib import pyplot as plt
+from phila_style import get_digital_standards
+from phila_style.matplotlib import get_theme
+
 from .. import DATA_DIR
-from ..utils import add_date_column, get_quarter
 from ..baseline import load_baseline_forecast
+from ..utils import add_date_column, get_quarter
 
 
 class ScenarioForecast(ABC):
@@ -175,9 +177,10 @@ class ScenarioForecast(ABC):
         """
 
         # Combine
-        data = [self.baseline.forecast.assign(Scenario="baseline")] + [
-            self.forecasts[k].assign(Scenario=k) for k in self.SCENARIOS
-        ]
+        data = [
+            self.baseline.forecast.assign(Scenario="baseline"),
+            self.baseline.historical.assign(Scenario="actual"),
+        ] + [self.forecasts[k].assign(Scenario=k) for k in self.SCENARIOS]
 
         # Trim to the forecast range
         data = pd.concat(data).query(
@@ -330,7 +333,12 @@ class ScenarioForecast(ABC):
             the row number to write the data to
         """
         # Combined scenarios
-        data = self.get_combined_scenarios().loc[["baseline"] + self.SCENARIOS]
+        data = self.get_combined_scenarios()
+        index_order = ["baseline"] + self.SCENARIOS + ["actual"]
+        if hasattr(data.index, "levels"):
+            data = data.reindex(index_order, level=0)
+        else:
+            data = data.loc[index_order]
 
         filename = (
             DATA_DIR / "templates" / "Budget Impact Analysis Template.xlsx"
