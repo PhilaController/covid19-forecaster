@@ -1,5 +1,6 @@
-from . import DATA_DIR
 import pandas as pd
+
+from . import DATA_DIR
 
 __all__ = ["load_tax_rates", "load_monthly_collections", "load_data_by_sector"]
 
