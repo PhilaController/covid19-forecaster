@@ -1,15 +1,18 @@
-from .fyp import BIRT_REVENUES, FYP_GROWTH_RATES, FY20_REVENUES
-from ..data import (
-    load_tax_rates,
-    load_monthly_collections,
-    load_data_by_sector,
-)
-from ..utils import get_fiscal_year, add_date_column
-
-import pandas as pd
-import numpy as np
 import calendar
+
+import numpy as np
+import pandas as pd
 from fbprophet import Prophet
+
+from ..data import (
+    load_data_by_sector,
+    load_monthly_collections,
+    load_tax_rates,
+)
+from ..utils import add_date_column, get_fiscal_year
+from .fyp import BIRT_REVENUES, FY20_REVENUES, FYP_GROWTH_RATES
+
+BASELINE_MAX = "03-31-2020"
 
 
 def load_historical_collections(tax_name):
@@ -23,7 +26,7 @@ def load_historical_collections(tax_name):
         the name of the tax to load
     """
     # Load the monthly collections data for all taxes
-    collections = load_monthly_collections("Tax")
+    collections = load_monthly_collections()
 
     # Select the tax we are loading
     if tax_name == "wage":
@@ -50,14 +53,14 @@ def load_historical_collections(tax_name):
 
         # Add fiscal year for tax year for BIRT
         if tax_name == "birt":
-            sector_info["fiscal_year"] = sector_info["tax_year"] + 1
+            sector_info["fiscal_year"] = sector_info["tax_year"]
 
         # Extrapolate monthly totals to monthly by sector
         collections = extrapolate_collections_by_sector(
             collections, sector_info
         )
 
-    return add_date_column(collections).query("total > 0")
+    return add_date_column(collections)
 
 
 def extrapolate_collections_by_sector(collections, by_sector):
@@ -143,7 +146,7 @@ def extrapolate_collections_by_sector(collections, by_sector):
 
 
 def project_tax_revenue(
-    tax_name, historical_df, seasonality_mode="multiplicative"
+    tax_name, historical_df, seasonality_mode="multiplicative", **kwargs
 ):
     """
     Project the specified tax using historical data for FY21 through
@@ -176,8 +179,16 @@ def project_tax_revenue(
         # Rename and sort
         N = N.rename(columns={"total": "y", "date": "ds"}).sort_values("ds")
 
+        # TRIM TO MAX BASELINE
+        N = N.query(f"ds <= '{BASELINE_MAX}'")
+
         # Initialize and fit the model
-        m = Prophet(seasonality_mode=seasonality_mode)
+        m = Prophet(
+            seasonality_mode=seasonality_mode,
+            daily_seasonality=False,
+            weekly_seasonality=False,
+            **kwargs,
+        )
         m.fit(N[["ds", "y"]])
 
         # Forecast until end of FY 2025
