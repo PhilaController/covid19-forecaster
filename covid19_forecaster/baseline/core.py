@@ -75,14 +75,16 @@ def extrapolate_collections_by_sector(collections, by_sector):
     by_sector : DataFrame
         the data for sector information, either monthly or annually
     """
-    # sum over sectors to get the fiscal year total
-    by_sector_by_FY = by_sector.groupby("fiscal_year")["total"].sum()
 
     # Determine how to group
-    if "month_name" in by_sector:
+    if "month_name" in by_sector.columns:
         groupby = ["fiscal_year", "month_name", "naics_sector"]
+
     else:
         groupby = ["fiscal_year", "naics_sector"]
+
+    # sum over sectors to get the fiscal year total
+    by_sector_by_FY = by_sector.groupby(groupby[:-1])["total"].sum()
 
     # Get the sector fraction
     normalized_by_sector = (
@@ -101,15 +103,16 @@ def extrapolate_collections_by_sector(collections, by_sector):
         total = collections.loc[group]
 
         # rescale sector totals by the overall total
-        overlapping_index = [
-            group_dict[k]
-            for k in group_dict
-            if k in normalized_by_sector.index.names
-        ]
-        sector_shares = normalized_by_sector.loc[overlapping_index]
+        overlapping_index = tuple(
+            [
+                group_dict[k]
+                for k in group_dict
+                if k in normalized_by_sector.index.names
+            ]
+        )
 
         # No match — we need to use historical averages
-        if not len(sector_shares):
+        if overlapping_index not in normalized_by_sector.index:
 
             levels = []
             overlapping_index = []
@@ -130,6 +133,8 @@ def extrapolate_collections_by_sector(collections, by_sector):
             )
             if len(overlapping_index):
                 sector_shares = sector_shares.loc[overlapping_index[0]]
+        else:
+            sector_shares = normalized_by_sector.loc[overlapping_index]
 
         # Rescale the monthly total by the sector shares
         rescaled_collections = (sector_shares * total["total"]).reset_index()
