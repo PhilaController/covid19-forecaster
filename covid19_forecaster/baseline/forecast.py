@@ -1,14 +1,17 @@
-from .fyp import FY20_REVENUES, FYP_GROWTH_RATES
-from .core import (
-    load_historical_collections,
-    project_tax_revenue,
-    calibrate_forecast,
-)
-from phila_style.matplotlib import get_theme
-from phila_style import get_digital_standards
-from matplotlib import pyplot as plt
 import pickle
 from pathlib import Path
+
+from matplotlib import pyplot as plt
+from phila_style import get_digital_standards
+from phila_style.matplotlib import get_theme
+
+from .core import (
+    BASELINE_MAX,
+    calibrate_forecast,
+    load_historical_collections,
+    project_tax_revenue,
+)
+from .fyp import FY20_REVENUES, FYP_GROWTH_RATES
 
 
 def _get_monthly_total(df):
@@ -29,7 +32,7 @@ class BaselineForecast(object):
         either "multiplicative" or "additive"
     """
 
-    def __init__(self, tax_name, seasonality_mode="multiplicative"):
+    def __init__(self, tax_name, seasonality_mode="multiplicative", **kwargs):
 
         # Store the tax name
         if tax_name not in FY20_REVENUES:
@@ -43,7 +46,10 @@ class BaselineForecast(object):
 
         # Get the raw forecast
         self.raw_forecast = project_tax_revenue(
-            tax_name, self.historical, seasonality_mode=seasonality_mode
+            tax_name,
+            self.historical,
+            seasonality_mode=seasonality_mode,
+            **kwargs,
         )
 
         # Readjust for sales
