@@ -1,5 +1,6 @@
-from .core import ScenarioForecast
 import numpy as np
+
+from .core import ScenarioForecast
 
 
 class SalesTax(ScenarioForecast):
