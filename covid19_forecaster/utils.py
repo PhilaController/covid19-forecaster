@@ -1,41 +1,39 @@
+import hashlib
+import json
+
+import numpy as np
 import pandas as pd
 
 
-def get_fiscal_year(date: pd.Timestamp) -> int:
-    """
-    Calculate the fiscal year the input datetime object
-    """
-    if date.month <= 6:
-        return date.year
+def aggregate_to_quarters(df, cols=None, key=None):
+    """Aggregate monthly data to quarters."""
+    grouped = df.groupby(pd.Grouper(freq="QS", key=key))
+    if cols is not None:
+        out = grouped[cols].sum()
     else:
-        return date.year + 1
+        out = grouped.sum()
+
+    # Set quarters w/o three to missing
+    size = grouped.size()
+    missing = size != 3
+    out.loc[missing, :] = np.nan
+
+    return out.dropna(axis=0, how="all")
 
 
-def get_quarter(date):
-    """
-    Return the fiscal quarter from the date
-    """
-    year = date.year
-    month = date.month
-    fiscal_year = year if month < 7 else year + 1
-    if month in [1, 2, 3]:
-        quarter = 3
-    elif month in [4, 5, 6]:
-        quarter = 4
-    elif month in [7, 8, 9]:
-        quarter = 1
+def get_unique_id(d, n=5):
+    """Generate a unique hash string from a dictionary."""
+
+    unique_id = hashlib.sha1(
+        json.dumps(d, sort_keys=True).encode()
+    ).hexdigest()
+
+    return unique_id[:n]
+
+
+def get_fiscal_year(dt):
+    """Get fiscal year from a date."""
+    if dt.month >= 7:
+        return dt.year + 1
     else:
-        quarter = 2
-    return f"FY{str(fiscal_year)[2:]} Q{quarter}"
-
-
-def add_date_column(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add a date column to represent the month/year.
-    """
-    return df.assign(
-        date=pd.to_datetime(
-            df.apply(lambda r: f"{r['month_name']} {r['year']}", axis=1)
-        )
-        + pd.offsets.MonthEnd(0)
-    )
+        return dt.year

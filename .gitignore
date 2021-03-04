@@ -7,3 +7,4 @@ dist/
 notebooks
 scripts
 docs
+**/data/cache

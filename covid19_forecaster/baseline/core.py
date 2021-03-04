@@ -1,346 +1,448 @@
-import calendar
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from functools import partial
+from typing import Dict, List, Optional
 
-import numpy as np
 import pandas as pd
-from fbprophet import Prophet
+from cached_property import cached_property
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
 
-from ..data import (
-    load_data_by_sector,
-    load_monthly_collections,
-    load_tax_rates,
+from .. import DATA_DIR, io
+from ..utils import aggregate_to_quarters, get_unique_id
+from .transformers import (
+    BaselineForecaster,
+    DisaggregateCollectionsBySector,
+    RevenueToTaxBase,
 )
-from ..utils import add_date_column, get_fiscal_year
-from .fyp import BIRT_REVENUES, FY20_REVENUES, FYP_GROWTH_RATES
-
-BASELINE_MAX = "03-31-2020"
 
 
-def load_historical_collections(tax_name):
-    """
-    Load monthly collections data and return the formatted data
-    to feed into the forecast.
-
-    Parameters
-    ----------
-    tax_name : str
-        the name of the tax to load
-    """
-    # Load the monthly collections data for all taxes
-    collections = load_monthly_collections()
-
-    # Select the tax we are loading
-    if tax_name == "wage":
-        collections = collections.query("name == 'wage_earnings'").copy()
-    elif tax_name == "npt":
-        collections = collections.query("name == 'net_profits'").copy()
-    elif tax_name == "rtt":
-        collections = collections.query(
-            "name == 'real_estate_transfer'"
-        ).copy()
-    else:
-        collections = collections.query(f"name == '{tax_name}'").copy()
-
-    # Add the school district totals to sales
-    if tax_name == "sales":
-        valid = collections["fiscal_year"] >= 2015
-        collections.loc[valid, "total"] += 120e6 / 12
-
-    # Format the sector data
-    if tax_name in ["sales", "wage", "birt"]:
-
-        # Get the sector info (for main sectors only)
-        sector_info = load_data_by_sector(tax_name, main_sectors_only=True)
-
-        # Add fiscal year for tax year for BIRT
-        if tax_name == "birt":
-            sector_info["fiscal_year"] = sector_info["tax_year"]
-
-        # Extrapolate monthly totals to monthly by sector
-        collections = extrapolate_collections_by_sector(
-            collections, sector_info
-        )
-
-    return add_date_column(collections)
+def _has_sectors(tax_name: str, ignore_sectors: bool) -> bool:
+    """Determine whether we are doing a sector-based forecast."""
+    return tax_name in ["birt", "sales", "wage", "rtt"] and not ignore_sectors
 
 
-def extrapolate_collections_by_sector(collections, by_sector):
-    """
-    Extrapolate from a monthly collections total for all sectors
-    to a monthly breakdown by sector (using historical sector information).
+def _crosswalk_sectors(
+    df: pd.DataFrame, crosswalk: Dict[str, List[str]]
+) -> pd.DataFrame:
+    """Internal function to perform a crosswalk across sectors."""
 
-    Parameters
-    ----------
-    collections : DataFrame
-        the monthly collections data
-    by_sector : DataFrame
-        the data for sector information, either monthly or annually
-    """
-
-    # Determine how to group
-    if "month_name" in by_sector.columns:
-        groupby = ["fiscal_year", "month_name", "naics_sector"]
-
-    else:
-        groupby = ["fiscal_year", "naics_sector"]
-
-    # sum over sectors to get the fiscal year total
-    by_sector_by_FY = by_sector.groupby(groupby[:-1])["total"].sum()
-
-    # Get the sector fraction
-    normalized_by_sector = (
-        by_sector.groupby(groupby)["total"].sum() / by_sector_by_FY
-    )
-
-    # Loop over each month in each fiscal year
+    # Loop over keys of crosswalk -> these are the new groupings
+    # Columns are the old groupings
     out = []
-    collections = collections.set_index(["fiscal_year", "month_name"])
-    for group in collections.index:
+    for name in crosswalk:
+        X = df[crosswalk[name]].sum(axis=1).rename(name)
+        out.append(X)
 
-        # make this group into a dict
-        group_dict = dict(zip(collections.index.names, group))
+    return pd.concat(out, axis=1)
 
-        # this is the monthly collections total
-        total = collections.loc[group]
 
-        # rescale sector totals by the overall total
-        overlapping_index = tuple(
-            [
-                group_dict[k]
-                for k in group_dict
-                if k in normalized_by_sector.index.names
-            ]
-        )
+def _get_monthly_total(df):
+    """Internal utility to get the monthly total."""
+    return df.groupby("date")["total"].sum().sort_index()
 
-        # No match — we need to use historical averages
-        if overlapping_index not in normalized_by_sector.index:
 
-            levels = []
-            overlapping_index = []
-            for key in normalized_by_sector.index.names:
-                if (
-                    key in group_dict
-                    and normalized_by_sector.index.isin(
-                        [group_dict[key]], level=key
-                    ).sum()
-                    > 0
-                ):
-                    levels.append(key)
-                    overlapping_index.append(group_dict[key])
-            levels.append("naics_sector")
+class cached_baseline:
+    """Convenience wrapper to check if cached baseline is present."""
 
-            sector_shares = normalized_by_sector.mean(
-                level=levels, axis="index"
-            )
-            if len(overlapping_index):
-                sector_shares = sector_shares.loc[overlapping_index[0]]
+    def __init__(self, func):
+        self.function = func
+
+    def __get__(self, instance, owner):
+        return partial(self.__call__, instance)
+
+    def __call__(self, baseline, X):
+        """Decorator that checks cache first, and then calls function."""
+
+        # Get the cache path
+        path = self.get_cache_path(baseline)
+
+        # Call if we need to
+        if baseline.fresh or not path.exists():
+
+            # Call the function
+            out = self.function(baseline, X)
+
+            # Setup output path
+            path = self.get_cache_path(baseline)
+            if not path.parent.exists():
+                path.parent.mkdir()
+
+            # Save
+            out.to_csv(path)
         else:
-            sector_shares = normalized_by_sector.loc[overlapping_index]
+            # Load from disk
+            out = self.load_from_cache(baseline)
 
-        # Rescale the monthly total by the sector shares
-        rescaled_collections = (sector_shares * total["total"]).reset_index()
+        return out
 
-        # Add the other values
-        for key, value in group_dict.items():
-            rescaled_collections[key] = value
-        for col in ["month", "fiscal_month", "year"]:
-            rescaled_collections[col] = total[col]
+    def get_cache_identifier(self, baseline):
+        """Cache path for baseline data."""
 
-        out.append(rescaled_collections)
+        # Get the params that go into the hash
+        d = {}
+        for key in [
+            "use_subsectors",
+            "ignore_sectors",
+            "freq",
+            "fit_start_date",
+            "fit_stop_date",
+        ]:
+            d[key] = getattr(baseline, key)
 
-    return pd.concat(out)
+        # Add fit kwargs
+        d.update(baseline.fit_kwargs)
 
+        # Get the hash string
+        return get_unique_id(d)
 
-def project_tax_revenue(
-    tax_name, historical_df, seasonality_mode="multiplicative", **kwargs
-):
-    """
-    Project the specified tax using historical data for FY21 through
-    FY25.
-    """
-    # Load tax rates
-    try:
-        rates = load_tax_rates(tax_name)
-    except ValueError:
-        rates = None
+    def get_cache_path(self, baseline):
+        """Return the cache path."""
 
-    # Doing a sector analysis?
-    sectors = None
-    if "naics_sector" in historical_df:
-        sectors = sorted(historical_df["naics_sector"].unique())
+        # Get the file path
+        tag = self.get_cache_identifier(baseline)
+        return DATA_DIR / "cache" / f"{baseline.tax_name}-baseline-{tag}.csv"
 
-    def _project_tax_revenue(df):
+    def load_from_cache(self, baseline):
+        """Load a cached baseline."""
 
-        # Revenue to base, if we have rates
-        X = df.copy()
-        if rates is not None:
-            X["total"] /= rates.loc[X["fiscal_year"], "rate"].values
+        # Get the file path
+        path = self.get_cache_path(baseline)
+        assert path.exists()
 
-        # Get data by year and month
-        N = X.groupby(["year", "month_name"])["total"].sum().reset_index()
-
-        # Add the month/year as a datetime
-        N = add_date_column(N)
-
-        # Rename and sort
-        N = N.rename(columns={"total": "y", "date": "ds"}).sort_values("ds")
-
-        # TRIM TO MAX BASELINE
-        N = N.query(f"ds <= '{BASELINE_MAX}'")
-
-        # Initialize and fit the model
-        m = Prophet(
-            seasonality_mode=seasonality_mode,
-            daily_seasonality=False,
-            weekly_seasonality=False,
-            **kwargs,
-        )
-        m.fit(N[["ds", "y"]])
-
-        # Forecast until end of FY 2025
-        periods = (
-            pd.to_datetime("6/30/25").to_period("M")
-            - N["ds"].max().to_period("M")
-        ).n
-
-        # Forecast
-        future = m.make_future_dataframe(periods=periods, freq="M")
-        forecast = m.predict(future)
-
-        # Add fiscal year
-        forecast["fiscal_year"] = forecast["ds"].apply(get_fiscal_year)
-
-        # Base to revenue if we need to
-        if rates is not None:
-            rate = rates.loc[forecast["fiscal_year"].tolist(), "rate"]
-            for col in ["yhat", "yhat_lower", "yhat_upper"]:
-                forecast[col] *= rate.values
+        # Number of headers in cached CSV
+        if _has_sectors(baseline.tax_name, baseline.ignore_sectors):
+            header = [0, 1]
+        else:
+            header = [0]
 
         # Return
-        cols = ["ds", "yhat", "yhat_lower", "yhat_upper"]
-        return forecast[cols].rename(
-            columns=dict(zip(cols, ["date", "total", "lower", "upper"]))
-        )
-
-    # Fit each sector
-    if sectors is not None:
-        forecast = pd.concat(
-            [
-                _project_tax_revenue(
-                    historical_df.query(f"naics_sector == '{sector}'")
-                ).assign(naics_sector=sector)
-                for sector in sectors
-            ]
-        )
-    else:
-        # Fit just the total
-        forecast = _project_tax_revenue(historical_df)
-
-    # Add additional columns
-    forecast = forecast.assign(
-        fiscal_year=forecast["date"].apply(get_fiscal_year),
-        year=forecast["date"].dt.year,
-        month=forecast["date"].dt.month,
-        month_name=forecast["date"].dt.month.apply(
-            lambda i: calendar.month_abbr[i].lower()
-        ),
-        fiscal_month=((forecast["date"].dt.month - 7) % 12 + 1),
-    )
-
-    return forecast
+        return pd.read_csv(path, index_col=0, parse_dates=[0], header=header)
 
 
-def get_forecasted_growth_rates(tax_name, forecast):
+@dataclass
+class BaselineForecast:
     """
-    Calculate the tax base growth rates from the forecasted
-    revenues.
+    A baseline tax revenue forecast, produced using Facebook's
+    Prophet tool on using collections data.
 
     Parameters
     ----------
-    tax_name : str
-        the name of the tax (to load the rates)
-    forecast : DataFrame
-        the revenue forecast
+    tax_name :
+        the name of the tax to fit
+    freq :
+        the prediction frequency, either 'M' (monthly) or 'Q' (quarterly)
+    fit_start_date :
+        where to begin fitting the baseline
+    fit_stop_date :
+        where to stop fitting the baseline
+    forecast_stop_date :
+        where to stop the baseline forecast
+    ignore_sectors :
+        do not disaggregate actual data into sectors (if possible)
+    use_subsectors :
+        whether to disaggregate with parent sectors or subsectors
+    fresh :
+        whether to use the cached baseline, or generate a fresh copy
+    fit_kwargs :
+        any additional fitting keywords to pass to Prophet
+    sector_crosswalk :
+        a cross walk from old to new sector definitions
     """
-    # Load tax rates
-    try:
-        rates = load_tax_rates(tax_name)
-    except ValueError:
-        rates = None
 
-    X = forecast.copy()
-    if rates is not None:
-        X["total"] /= rates.loc[X["fiscal_year"], "rate"].values
+    tax_name: str
+    freq: str
+    fit_start_date: str = "2014-07-01"
+    fit_stop_date: str = "2020-03-31"
+    ignore_sectors: Optional[bool] = False
+    use_subsectors: Optional[bool] = False
+    fresh: Optional[bool] = False
+    fit_kwargs: Optional[dict] = field(default_factory=dict)
+    sector_crosswalk: Optional[Dict[str, List[str]]] = None
 
-    N = X.groupby(["fiscal_year"])["total"].sum().sort_index()
-    return N.diff() / N.shift()
+    def __post_init__(self):
 
+        # Check parameter values
+        assert self.freq in ["M", "Q"]
+        assert self.tax_name in [
+            "wage",
+            "birt",
+            "amusement",
+            "npt",
+            "parking",
+            "rtt",
+            "sales",
+            "soda",
+        ]
 
-def calibrate_forecast(tax_name, raw_forecast):
-    """
-    Calibrate the revenue forecast to match the projections in
-    the forecasted FY21 - FY25 Five Year Plan.
+        # Load the actual data
+        self.actuals_raw = io.load_monthly_collections(self.tax_name)
 
-    Parameters
-    ----------
-    tax_name : str
-        the name of the tax
-    raw_forecast : DataFrame
-        the raw revenue forecast to calibrate
-    """
-    # Handle BIRT separately
-    if tax_name == "birt":
+        # Construct the pipeline
+        self.steps = OrderedDict()
 
-        # Raw annual FY totals
-        raw_revenues = raw_forecast.groupby("fiscal_year")["total"].sum()
-
-        # rescale by the correct revenue
-        correction_factors = BIRT_REVENUES / raw_revenues
-
-    # Handle everything else
-    else:
-
-        # Rescale by growth rates (if we have them)
-        if tax_name in FYP_GROWTH_RATES:
-
-            # Get tax base growth rates
-            growth_rates = get_forecasted_growth_rates(tax_name, raw_forecast)
-
-            # Rescale based on growth
-            correction_factors = (
-                (1 + FYP_GROWTH_RATES[tax_name]) / (1 + growth_rates)
-            ).dropna()
-
-        # No rescaling necessary
+        # ------------------------------------------------------------
+        # STEP 1: Disaggregate monthly totals by sector and reshape
+        # ------------------------------------------------------------
+        if _has_sectors(self.tax_name, self.ignore_sectors):
+            self.steps["disaggregate_by_sector"] = FunctionTransformer(
+                self.disaggregate_by_sector
+            )
         else:
+            self.steps["reshape_raw_actuals"] = FunctionTransformer(
+                self.reshape_raw_actuals
+            )
 
-            correction_factors = pd.DataFrame(
-                {
-                    "fiscal_year": [2020, 2021, 2022, 2023, 2024, 2025],
-                    "growth_rate": np.ones(6),
-                }
-            ).set_index("fiscal_year")["growth_rate"]
+        # -----------------------------------------------------------------
+        # STEP 2: Aggregate to quarters (optional)
+        # -----------------------------------------------------------------
+        if self.freq == "Q":
+            self.steps["aggregate_to_quarters"] = FunctionTransformer(
+                aggregate_to_quarters
+            )
 
-        # Rescale FY20 by FYP revenue
-        FY20_revenue = raw_forecast.query("fiscal_year == 2020")["total"].sum()
-        correction_factors.loc[2020] = FY20_REVENUES[tax_name] / FY20_revenue
+        # -----------------------------------------------------------------
+        # STEP 3: Convert revenue to tax base
+        # -----------------------------------------------------------------
+        self.steps["to_tax_base"] = FunctionTransformer(self.to_tax_base)
 
-        # Take cumulative product
-        correction_factors = correction_factors.sort_index().cumprod()
+        # -----------------------------------------------------------------
+        # STEP 4: Generate the tax base baseline forecast from the actuals
+        # -----------------------------------------------------------------
+        self.steps["fit_tax_base"] = FunctionTransformer(self.fit_tax_base)
 
-    # Merge correctation factors
-    calibrated = pd.merge(
-        raw_forecast,
-        correction_factors.reset_index(name="correction").rename(
-            columns={"index": "fiscal_year"}
-        ),
-        on="fiscal_year",
-        how="left",
-    ).assign(
-        month=lambda df: df.date.dt.month, year=lambda df: df.date.dt.year,
-    )
+        # -----------------------------------------------------------------
+        # STEP 5: Convert back to revenue
+        # -----------------------------------------------------------------
+        self.steps["to_revenue"] = FunctionTransformer(self.to_revenue)
 
-    # Calibrate!
-    for col in ["total", "lower", "upper"]:
-        calibrated[col] *= calibrated["correction"].fillna(1)
+        # -----------------------------------------------------------------
+        # FINAL: Create the pipeline that runs all of the above steps
+        # -----------------------------------------------------------------
+        self.pipeline = Pipeline(self.steps.items())
 
-    return calibrated
+    @cached_property
+    def forecasted_revenue_(self):
+        """The predicted revenue forecast."""
+        return self.pipeline.fit_transform(self.actuals_raw)
+
+    @cached_property
+    def forecasted_tax_base_(self):
+        """The predicted tax base forecast."""
+        return self.to_tax_base(self.forecasted_revenue_)
+
+    @cached_property
+    def forecasted_total_revenue_(self):
+        """The predicted total revenue forecast, summed over any sectors"""
+        return self.sum_over_sectors(self.forecasted_revenue_["total"])
+
+    @cached_property
+    def forecasted_total_tax_base_(self):
+        """The predicted total tax base forecast, summed over any sectors"""
+        return self.sum_over_sectors(self.forecasted_tax_base_["total"])
+
+    @cached_property
+    def actual_revenue_(self):
+        """The actual, processed revenue data"""
+
+        # Steps we will skip
+        skip = ["to_tax_base", "fit_tax_base", "to_revenue"]
+
+        # Start from raw actuals and then transform
+        X = self.actuals_raw
+        for (name, step) in self.pipeline.steps:
+            if name not in skip:
+                X = step.fit_transform(X)
+
+        return X
+
+    @cached_property
+    def actual_tax_base_(self):
+        """The actual, processed revenue data"""
+        return self.to_tax_base(self.actual_revenue_)
+
+    @cached_property
+    def actual_total_revenue_(self):
+        """The actual revenue data, summed over any sectors"""
+        return self.sum_over_sectors(self.actual_revenue_)
+
+    @cached_property
+    def actual_total_tax_base_(self):
+        """The actual tax base data, summed over any sectors"""
+        return self.sum_over_sectors(self.actual_tax_base_)
+
+    def disaggregate_by_sector(self, X):
+        """STEP: Disaggregate input actuals by sector."""
+
+        # Load the sector
+        sector_data = io.load_data_by_sector(
+            self.tax_name, use_subsectors=self.use_subsectors
+        )
+
+        # Disaggregate actuals by sector
+        sector_transformer = DisaggregateCollectionsBySector(sector_data)
+        X = sector_transformer.fit_transform(X)
+
+        # Pivot so each sector has its own column
+        X = X.pivot_table(index="date", values="total", columns="sector")
+
+        # Now do any cross walk if we need to
+        if self.sector_crosswalk is not None:
+            X = _crosswalk_sectors(X, self.sector_crosswalk)
+
+        return X
+
+    def reshape_raw_actuals(self, X):
+        """STEP: Reshape the input actuals so index is date and there is one column"""
+
+        # Index is date and one column "total"
+        return X.pivot_table(index="date", values="total")
+
+    def to_tax_base(self, X):
+        """STEP: Convert revenue to tax base by dividing by tax rate."""
+
+        # Initialize the transformer and return transformed
+        tax_base_transformer = RevenueToTaxBase(self.tax_name)
+        return tax_base_transformer.fit_transform(X)
+
+    @cached_baseline
+    def fit_tax_base(self, X):
+        """STEP: Run Prophet to fit the tax base data."""
+
+        # Initialize the baseline
+        baseline = BaselineForecaster(
+            fit_start_date=self.fit_start_date,
+            fit_stop_date=self.fit_stop_date,
+            fit_kwargs=self.fit_kwargs,
+            forecast_stop_date="2025-06-30",
+        )
+
+        # Transform
+        return baseline.fit_transform(X)
+
+    def to_revenue(self, X):
+        """STEP: Convert tax base to revenue by multiplying by tax rate."""
+
+        # Initialize the transformer and return transformed
+        tax_base_transformer = RevenueToTaxBase(self.tax_name)
+        return tax_base_transformer.inverse_transform(X)
+
+    def sum_over_sectors(self, X):
+        """Convenience function to (optionally) sum over sectors."""
+        if self.has_sectors:
+            return X.sum(axis=1)
+        else:
+            return X.squeeze()
+
+    @property
+    def sectors(self):
+        """The names of the sectors fit if the data is sector-based."""
+        if self.has_sectors:
+            return self.forecasted_revenue_.columns.get_level_values(
+                level=-1
+            ).unique()
+        else:
+            return []
+
+    @property
+    def inferred_freq(self):
+        """The frequency inferred from the data used in the fit."""
+        return self.actual_revenue_.index.inferred_freq
+
+    @property
+    def has_sectors(self):
+        """Whether a baseline was fit for multiple sectors."""
+        return self.forecasted_revenue_.columns.nlevels > 1
+
+    @property
+    def mean_abs_error(self):
+        """The mean absolute error of the fit."""
+
+        P = self.forecasted_total_revenue_
+        H = self.actual_total_revenue_
+        diff = (H - P).loc[self.fit_start_date : self.fit_stop_date]
+
+        return diff.dropna().abs().mean()
+
+    @property
+    def mean_abs_percent_error(self):
+        """Mean absolute percent error of the fit."""
+
+        P = self.forecasted_total_revenue_
+        H = self.actual_total_revenue_
+        diff = ((H - P) / H).loc[self.fit_start_date : self.fit_stop_date]
+
+        return diff.dropna().abs().mean()
+
+    @property
+    def mean_rms(self):
+        """The average root mean squared error of the fit."""
+
+        P = self.forecasted_total_revenue_
+        H = self.actual_total_revenue_
+        diff = ((H - P) ** 2).loc[self.fit_start_date : self.fit_stop_date]
+
+        return diff.dropna().mean() ** 0.5
+
+    def plot(self, sector=None):
+        """Plot the total forecast, as well as the historical data points."""
+
+        from matplotlib import pyplot as plt
+        from phila_style import get_digital_standards
+        from phila_style.matplotlib import get_theme
+
+        # Load the palettes
+        palette = get_digital_standards()
+
+        if sector is not None:
+            assert sector in self.sectors
+
+        with plt.style.context(get_theme()):
+
+            fig, ax = plt.subplots(
+                figsize=(6, 4), gridspec_kw=dict(left=0.15, bottom=0.1)
+            )
+
+            def _transform(X, sector):
+                if self.has_sectors:
+                    if sector is not None:
+                        X = X[sector]
+                    else:
+                        X = X.sum(axis=1)
+                return X
+
+            # Plot the prediction
+            total = _transform(self.forecasted_revenue_["total"], sector)
+            total.plot(
+                lw=1,
+                ax=ax,
+                color=palette["dark-ben-franklin"],
+                zorder=10,
+                legend=False,
+            )
+
+            # Uncertainty
+            lower = _transform(self.forecasted_revenue_["lower"], sector)
+            upper = _transform(self.forecasted_revenue_["upper"], sector)
+            ax.fill_between(
+                lower.index,
+                lower.values,
+                upper.values,
+                facecolor=palette["dark-ben-franklin"],
+                alpha=0.7,
+                zorder=9,
+            )
+
+            # Plot the historical scatter
+            H = _transform(self.actual_revenue_, sector)
+            ax.scatter(
+                H.index, H.values, color=palette["love-park-red"], zorder=11,
+            )
+
+            # Format
+            ax.set_yticks(ax.get_yticks())
+            ax.set_yticklabels([f"${x/1e6:.0f}M" for x in ax.get_yticks()])
+            ax.set_xlabel("")
+            ax.set_ylabel("")
+
+            return fig, ax

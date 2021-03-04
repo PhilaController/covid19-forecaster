@@ -1,3 +1,33 @@
+[tool.poetry]
+name = "covid19-forecaster"
+version = "2.0.0"
+description = "Forecasting the revenue impact of COVID-19 on the City of Philadelphia's finances"
+authors = ["Nick Hand <nicholas.adam.hand@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pandas = "^1.2.2"
+fbprophet = "^0.7.1"
+phila-style = "^0.1.0"
+matplotlib = "^3.3.4"
+openpyxl = "^3.0.6"
+phl-budget-data = "^0.1.2"
+scikit-learn = "^0.24.1"
+xlsxwriter = "^1.3.7"
+seaborn = "^0.11.1"
+altair = "^4.1.0"
+desert = "^2020.11.18"
+cached_property = "^1.5.2"
+cached-property = "^1.5.2"
+
+
+[tool.poetry.dev-dependencies]
+black = "^20.8b1"
+jupyterlab = "^3.0.9"
+jupyterlab_code_formatter = "^1.4.4"
+isort = "^5.7.0"
+
 [tool.black]
 line-length = 79
 include = '\.pyi?$'
@@ -14,3 +44,7 @@ exclude = '''
   | dist
 )/
 '''
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
+
