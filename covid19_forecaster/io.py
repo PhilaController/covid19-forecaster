@@ -1,3 +1,5 @@
+import calendar
+
 import pandas as pd
 from phl_budget_data.clean import (
     load_birt_collections_by_sector,
@@ -9,7 +11,50 @@ from phl_budget_data.clean import (
 
 from . import DATA_DIR
 
-__all__ = ["load_tax_rates", "load_monthly_collections", "load_data_by_sector"]
+MONTH_NAMES = [x.lower() for x in calendar.month_abbr]
+
+
+def load_monthly_sales_tax_data():
+    """Load monthly sales tax collections."""
+
+    # Load the raw data
+    sales = pd.read_excel(
+        DATA_DIR / "taxes" / "monthly-sales-data.xlsx",
+        sheet_name="Sales",
+        usecols="B,U:AB",
+        skiprows=12,
+        nrows=12,
+        index_col=0,
+    )
+
+    # Format it
+    sales = (
+        sales.melt(
+            ignore_index=False, var_name="fiscal_year", value_name="total"
+        )
+        .rename_axis("month_name", axis=0)
+        .reset_index()
+        .assign(
+            fiscal_year=lambda df: df.fiscal_year.str.slice(2).astype(int),
+            month_name=lambda df: df.month_name.str.lower().str.slice(0, 3),
+            month=lambda df: df.month_name.apply(
+                lambda x: MONTH_NAMES.index(x)
+            ),
+            fiscal_month=lambda df: ((df.month - 7) % 12 + 1),
+            year=lambda df: df.apply(
+                lambda r: r["fiscal_year"]
+                if r["month"] < 7
+                else r["fiscal_year"] - 1,
+                axis=1,
+            ),
+            date=lambda df: pd.to_datetime(
+                df["month"].astype(str) + "/" + df["year"].astype(str)
+            ),
+        )
+        .dropna(subset=["total"])
+    )
+
+    return sales
 
 
 def load_tax_rates(tax: str) -> pd.DataFrame:
@@ -74,11 +119,11 @@ def load_data_by_sector(kind: str, use_subsectors=False) -> pd.DataFrame:
 
     # Get the main sectors
     if not use_subsectors:
-        out = df.query("parent_sector.isnull()")
+        out = df.query("parent_sector.isnull()").copy()
     # Use sub-sectors
     else:
         parent_sectors = df["parent_sector"].unique()
-        out = df.query("sector not in @parent_sectors")
+        out = df.query("sector not in @parent_sectors").copy()
 
     if kind == "birt":
         out["fiscal_year"] = out["tax_year"]
@@ -97,9 +142,13 @@ def load_monthly_collections(tax_name) -> pd.DataFrame:
     DataFrame :
         the data for collections by month
     """
+    if tax_name == "sales":
+        return load_monthly_sales_tax_data()
+
     # Load all the data
     df = load_city_collections().query("kind == 'Tax'")
 
+    # Combine wage + earnings
     if tax_name == "wage":
 
         # Combine wage + earnings

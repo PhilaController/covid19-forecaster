@@ -28,5 +28,7 @@ class AmusementTaxForecast(DefaultForecaster, RevenueForecast):
             baseline_start=BASELINE_START,
             baseline_stop=BASELINE_STOP,
             fresh=fresh,
-            fit_kwargs={"seasonality_mode": "multiplicative"},
+            agg_after_fitting=False,
+            fit_kwargs={"seasonality_mode": "additive"},
+            flat_growth=True,
         )

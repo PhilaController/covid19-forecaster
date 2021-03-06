@@ -54,6 +54,8 @@ class RevenueForecast(ABC):
     sector_crosswalk: Optional[dict] = None
     fresh: Optional[bool] = False
     fit_kwargs: Optional[dict] = field(default_factory=dict)
+    agg_after_fitting: Optional[bool] = False
+    flat_growth: Optional[bool] = False
 
     def __post_init__(self):
 
@@ -68,6 +70,8 @@ class RevenueForecast(ABC):
             fresh=self.fresh,
             fit_kwargs=self.fit_kwargs,
             sector_crosswalk=self.sector_crosswalk,
+            agg_after_fitting=self.agg_after_fitting,
+            flat_growth=self.flat_growth,
         )
 
         # Create forecast dates index
@@ -127,6 +131,7 @@ class RevenueForecast(ABC):
         start = self.forecast_start
         stop = self.forecast_stop
         self.forecast_ = self.baseline.forecasted_revenue_["total"].copy()
+        self.forecast_ = self.forecast_.loc[:stop]
 
         # ---------------------------------------------------------------------
         # STEP 2: Iterate over each time step and apply the reduction
@@ -206,7 +211,7 @@ class RevenueForecast(ABC):
                 )
 
                 # Plot the actuals scatter
-                actuals.reset_index().plot(
+                actuals.reset_index(name="total").plot(
                     kind="scatter",
                     x="date",
                     y="total",

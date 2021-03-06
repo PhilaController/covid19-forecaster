@@ -10,11 +10,23 @@ from sklearn.preprocessing import FunctionTransformer
 
 from .. import DATA_DIR, io
 from ..utils import aggregate_to_quarters, get_unique_id
+from .sales import get_city_sales_only
 from .transformers import (
     BaselineForecaster,
     DisaggregateCollectionsBySector,
     RevenueToTaxBase,
 )
+
+TAX_NAMES = [
+    "wage",
+    "birt",
+    "amusement",
+    "npt",
+    "parking",
+    "rtt",
+    "sales",
+    "soda",
+]
 
 
 def _has_sectors(tax_name: str, ignore_sectors: bool) -> bool:
@@ -87,6 +99,7 @@ class cached_baseline:
             "freq",
             "fit_start_date",
             "fit_stop_date",
+            "agg_after_fitting",
         ]:
             d[key] = getattr(baseline, key)
 
@@ -159,21 +172,16 @@ class BaselineForecast:
     fresh: Optional[bool] = False
     fit_kwargs: Optional[dict] = field(default_factory=dict)
     sector_crosswalk: Optional[Dict[str, List[str]]] = None
+    agg_after_fitting: Optional[bool] = False
+    flat_growth: Optional[bool] = False
 
     def __post_init__(self):
 
         # Check parameter values
         assert self.freq in ["M", "Q"]
-        assert self.tax_name in [
-            "wage",
-            "birt",
-            "amusement",
-            "npt",
-            "parking",
-            "rtt",
-            "sales",
-            "soda",
-        ]
+        assert self.tax_name in TAX_NAMES
+        if self.tax_name == "sales" and self.freq == "Q":
+            self.agg_after_fitting = True
 
         # Load the actual data
         self.actuals_raw = io.load_monthly_collections(self.tax_name)
@@ -194,9 +202,9 @@ class BaselineForecast:
             )
 
         # -----------------------------------------------------------------
-        # STEP 2: Aggregate to quarters (optional)
+        # STEP 2: Aggregate to quarters before fitting (optional)
         # -----------------------------------------------------------------
-        if self.freq == "Q":
+        if self.freq == "Q" and not self.agg_after_fitting:
             self.steps["aggregate_to_quarters"] = FunctionTransformer(
                 aggregate_to_quarters
             )
@@ -217,6 +225,22 @@ class BaselineForecast:
         self.steps["to_revenue"] = FunctionTransformer(self.to_revenue)
 
         # -----------------------------------------------------------------
+        # STEP 6: Extract city portion of sales (optional)
+        # -----------------------------------------------------------------
+        if self.tax_name == "sales":
+            self.steps["extract_city_sales"] = FunctionTransformer(
+                get_city_sales_only
+            )
+
+        # -----------------------------------------------------------------
+        # STEP 7: Aggregate to quarters after fitting (optional)
+        # -----------------------------------------------------------------
+        if self.freq == "Q" and self.agg_after_fitting:
+            self.steps["aggregate_to_quarters"] = FunctionTransformer(
+                aggregate_to_quarters
+            )
+
+        # -----------------------------------------------------------------
         # FINAL: Create the pipeline that runs all of the above steps
         # -----------------------------------------------------------------
         self.pipeline = Pipeline(self.steps.items())
@@ -229,7 +253,19 @@ class BaselineForecast:
     @cached_property
     def forecasted_tax_base_(self):
         """The predicted tax base forecast."""
-        return self.to_tax_base(self.forecasted_revenue_)
+        if self.tax_name != "sales":
+            return self.to_tax_base(self.forecasted_revenue_)
+        else:
+            # Steps we will skip
+            skip = ["to_revenue", "extract_city_sales"]
+
+            # Start from raw actuals and then transform
+            X = self.actuals_raw
+            for (name, step) in self.pipeline.steps:
+                if name not in skip:
+                    X = step.fit_transform(X)
+
+            return X
 
     @cached_property
     def forecasted_total_revenue_(self):
@@ -246,7 +282,12 @@ class BaselineForecast:
         """The actual, processed revenue data"""
 
         # Steps we will skip
-        skip = ["to_tax_base", "fit_tax_base", "to_revenue"]
+        skip = [
+            "to_tax_base",
+            "fit_tax_base",
+            "project_flat_growth",
+            "to_revenue",
+        ]
 
         # Start from raw actuals and then transform
         X = self.actuals_raw
@@ -259,7 +300,24 @@ class BaselineForecast:
     @cached_property
     def actual_tax_base_(self):
         """The actual, processed revenue data"""
-        return self.to_tax_base(self.actual_revenue_)
+        if self.tax_name != "sales":
+            return self.to_tax_base(self.actual_revenue_)
+        else:
+            # Steps we will skip
+            skip = [
+                "fit_tax_base",
+                "project_flat_growth",
+                "to_revenue",
+                "extract_city_sales",
+            ]
+
+            # Start from raw actuals and then transform
+            X = self.actuals_raw
+            for (name, step) in self.pipeline.steps:
+                if name not in skip:
+                    X = step.fit_transform(X)
+
+            return X
 
     @cached_property
     def actual_total_revenue_(self):
@@ -318,7 +376,15 @@ class BaselineForecast:
         )
 
         # Transform
-        return baseline.fit_transform(X)
+        out = baseline.fit_transform(X)
+
+        # -----------------------------------------------------------------
+        # Project flat tax base growth (optional)
+        # -----------------------------------------------------------------
+        if self.flat_growth:
+            out = self.project_flat_growth(out)
+
+        return out
 
     def to_revenue(self, X):
         """STEP: Convert tax base to revenue by multiplying by tax rate."""
@@ -326,6 +392,44 @@ class BaselineForecast:
         # Initialize the transformer and return transformed
         tax_base_transformer = RevenueToTaxBase(self.tax_name)
         return tax_base_transformer.inverse_transform(X)
+
+    def project_flat_growth(self, X, start="2019-04", stop="2020-03"):
+        """Normalize future growth to be flat at the last annual period."""
+        # Make a copy first
+        X = X.copy()
+        freq = X.index.inferred_freq
+        X.index.freq = freq
+
+        # This is the part that will be projected
+        norm = X.loc[start:stop].copy()
+        latest_date = norm.index[-1]
+
+        # This should be monthly or quarterly
+        assert len(norm) in [4, 12]
+        if len(norm) == 4:
+            key = lambda dt: dt.quarter
+        else:
+            key = lambda dt: dt.month
+
+        # Reset the index to months/quarters
+        norm.index = [key(dt) for dt in norm.index]
+
+        # Change the forecast to be flat
+        forecast_start = latest_date + latest_date.freq
+        Y = X.loc[forecast_start:].copy()
+
+        # Reset index
+        i = Y.index
+        Y.index = [key(dt) for dt in Y.index]
+
+        # Overwrite
+        Y.loc[:] = norm.loc[Y.index].values
+        Y.index = i
+
+        # Add back to original
+        X.loc[Y.index] = Y.values
+
+        return X
 
     def sum_over_sectors(self, X):
         """Convenience function to (optionally) sum over sectors."""
@@ -384,7 +488,7 @@ class BaselineForecast:
 
         return diff.dropna().mean() ** 0.5
 
-    def plot(self, sector=None):
+    def plot(self, sector=None, tax_base=False):
         """Plot the total forecast, as well as the historical data points."""
 
         from matplotlib import pyplot as plt
@@ -412,7 +516,10 @@ class BaselineForecast:
                 return X
 
             # Plot the prediction
-            total = _transform(self.forecasted_revenue_["total"], sector)
+            prediction = self.forecasted_revenue_
+            if tax_base:
+                prediction = self.forecasted_tax_base_
+            total = _transform(prediction["total"], sector)
             total.plot(
                 lw=1,
                 ax=ax,
@@ -422,8 +529,8 @@ class BaselineForecast:
             )
 
             # Uncertainty
-            lower = _transform(self.forecasted_revenue_["lower"], sector)
-            upper = _transform(self.forecasted_revenue_["upper"], sector)
+            lower = _transform(prediction["lower"], sector)
+            upper = _transform(prediction["upper"], sector)
             ax.fill_between(
                 lower.index,
                 lower.values,
@@ -434,7 +541,10 @@ class BaselineForecast:
             )
 
             # Plot the historical scatter
-            H = _transform(self.actual_revenue_, sector)
+            if not tax_base:
+                H = _transform(self.actual_revenue_, sector)
+            else:
+                H = _transform(self.actual_tax_base_, sector)
             ax.scatter(
                 H.index, H.values, color=palette["love-park-red"], zorder=11,
             )

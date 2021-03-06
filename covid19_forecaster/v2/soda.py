@@ -15,8 +15,8 @@ class SodaTaxForecast(DefaultForecaster, RevenueForecast):
     """Soda tax revenue forecast."""
 
     ASSUMPTIONS = {
-        "moderate": [0.05, 0.05, 0.05, 0.0, 0, 0.025],
-        "severe": [0.1, 0.1, 0.1, 0.05, 0.05, 0.0],
+        "moderate": [0.1, 0.1, 0.05, 0.05, 0.03, 0.01],
+        "severe": [0.15, 0.15, 0.1, 0.05, 0.05, 0.03],
     }
 
     def __init__(self, fresh=False):
@@ -28,5 +28,7 @@ class SodaTaxForecast(DefaultForecaster, RevenueForecast):
             baseline_start=BASELINE_START,
             baseline_stop=BASELINE_STOP,
             fresh=fresh,
+            agg_after_fitting=True,
             fit_kwargs={"seasonality_mode": "additive"},
+            flat_growth=True,
         )

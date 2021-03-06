@@ -3,6 +3,7 @@ import logging
 logger = logging.getLogger("fbprophet.plot")
 logger.setLevel(logging.CRITICAL)
 
+
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -268,10 +269,11 @@ class DisaggregateCollectionsBySector:
                 .fillna(method="ffill")
             )
 
-        return (
+        out = (
             data.merge(
                 sector_shares.reset_index(), on=self.time_cols_, how="left"
             )
             .assign(total=lambda df: df["total"] * df["sector_share"])
             .drop(labels=["sector_share"], axis=1)
         )
+        return out

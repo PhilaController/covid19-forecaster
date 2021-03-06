@@ -30,5 +30,7 @@ class ParkingTaxForecast(DefaultForecaster, RevenueForecast):
             baseline_start=BASELINE_START,
             baseline_stop=BASELINE_STOP,
             fresh=fresh,
+            agg_after_fitting=False,
             fit_kwargs={"seasonality_mode": "multiplicative"},
+            flat_growth=True,
         )

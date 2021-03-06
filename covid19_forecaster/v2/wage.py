@@ -216,7 +216,9 @@ class WageTaxForecast(NoBaselineForecasterBySector, RevenueForecast):
         },
     }
 
-    def __init__(self, fresh=False):
+    def __init__(
+        self, fresh=False,
+    ):
         super().__init__(
             tax_name="wage",
             forecast_start=FORECAST_START,
@@ -225,8 +227,10 @@ class WageTaxForecast(NoBaselineForecasterBySector, RevenueForecast):
             baseline_start=BASELINE_START,
             baseline_stop=BASELINE_STOP,
             fresh=fresh,
-            fit_kwargs={"seasonality_mode": "multiplicative"},
             sector_crosswalk=CROSSWALK,
+            agg_after_fitting=True,
+            fit_kwargs={"seasonality_mode": "multiplicative"},
+            flat_growth=True,
         )
 
     def run_forecast(self, scenario):
@@ -239,7 +243,7 @@ class WageTaxForecast(NoBaselineForecasterBySector, RevenueForecast):
         if scenario == "severe":
 
             # Get the seasonality
-            baseline = self.baseline.forecast_.copy()
+            baseline = self.baseline.forecasted_revenue_.copy()
             seasonality = baseline["yearly"] / baseline["trend"]
 
             # Apply seasonality
