@@ -174,6 +174,7 @@ class BaselineForecast:
     sector_crosswalk: Optional[Dict[str, List[str]]] = None
     agg_after_fitting: Optional[bool] = False
     flat_growth: Optional[bool] = False
+    city_sales_only: Optional[bool] = False
 
     def __post_init__(self):
 
@@ -227,7 +228,7 @@ class BaselineForecast:
         # -----------------------------------------------------------------
         # STEP 6: Extract city portion of sales (optional)
         # -----------------------------------------------------------------
-        if self.tax_name == "sales":
+        if self.city_sales_only and self.tax_name == "sales":
             self.steps["extract_city_sales"] = FunctionTransformer(
                 get_city_sales_only
             )

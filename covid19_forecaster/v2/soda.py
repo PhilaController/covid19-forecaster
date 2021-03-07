@@ -16,7 +16,7 @@ class SodaTaxForecast(DefaultForecaster, RevenueForecast):
 
     ASSUMPTIONS = {
         "moderate": [0.1, 0.1, 0.05, 0.05, 0.03, 0.01],
-        "severe": [0.15, 0.15, 0.1, 0.05, 0.05, 0.03],
+        "severe": [0.15, 0.15, 0.1, 0.075, 0.05, 0.03],
     }
 
     def __init__(self, fresh=False):

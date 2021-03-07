@@ -1,5 +1,5 @@
 from ..core import RevenueForecast
-from ..utils import get_fiscal_year
+from ..forecasters import DefaultForecaster
 from . import (
     BASELINE_START,
     BASELINE_STOP,
@@ -9,12 +9,12 @@ from . import (
 )
 
 
-class NPTForecast(RevenueForecast):
+class NPTForecast(DefaultForecaster, RevenueForecast):
     """Net profits tax revenue forecast."""
 
     ASSUMPTIONS = {
-        "moderate": {2020: 0.1, 2021: 0.3, 2022: 0.02},
-        "severe": {2020: 0.1, 2021: 0.4, 2022: 0.05},
+        "moderate": [0.1, 0.4, 0.0, -0.02, -0.02, -0.05],
+        "severe": [0.4, 0.5, 0.02, 0.02, 0.02, 0.03],
     }
 
     def __init__(self, fresh=False):
@@ -30,12 +30,3 @@ class NPTForecast(RevenueForecast):
             fit_kwargs={"seasonality_mode": "additive"},
             flat_growth=True,
         )
-
-    def get_forecasted_decline(self, date, baseline, scenario):
-        """Return the forecasted decline."""
-
-        assert scenario in ["moderate", "severe"]
-
-        fiscal_year = get_fiscal_year(date)
-        decline = self.ASSUMPTIONS[scenario][fiscal_year]
-        return baseline * (1 - decline)

@@ -16,7 +16,7 @@ class ParkingTaxForecast(DefaultForecaster, RevenueForecast):
 
     ASSUMPTIONS = {
         "moderate": [0.5, 0.4, 0.3, 0.2, 0.1, 0.1],
-        "severe": [0.5, 0.5, 0.5, 0.3, 0.3, 0.3],
+        "severe": [0.5, 0.5, 0.4, 0.3, 0.3, 0.2],
     }
 
     def __init__(self, fresh=False):
