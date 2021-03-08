@@ -3,37 +3,66 @@ import pandas as pd
 
 from ..utils import get_fiscal_year
 
+# School district gets $120M
+MAX_DISTRICT_AMOUNT = 120e6
 
-def get_sales_fiscal_year(r):
-    """July/Aug are associated with the previous year."""
+
+def get_sales_fiscal_year(r: pd.Series) -> int:
+    """
+    July/Aug are associated with the previous fiscal year
+    due to the accrual period.
+    """
     if r["month"] in [7, 8]:
         return r["fiscal_year"] - 1
     else:
         return r["fiscal_year"]
 
 
-def _get_city_sales_only(df):
-    """Internal function to extract city sales data."""
+def _get_city_sales_only(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Internal function to extract city sales data.
 
-    assert all(col in df.columns for col in ["month", "fiscal_year"])
+    Notes
+    -----
+    There must be "month", "total", and "fiscal_year" columns.
+
+    Parameters
+    ----------
+    df :
+        sales data in tidy format
+
+    Returns
+    -------
+    out :
+        a copy of the input data, with
+    """
+    # Make sure our columns exist
+    assert all(col in df.columns for col in ["month", "fiscal_year", "total"])
 
     # Create a copy and add the fiscal year for sales calculation
     X = df.copy()
     X["fiscal_year_sales"] = df.apply(get_sales_fiscal_year, axis=1)
 
     def add_sales_total(grp):
-        """Keep track of school district portion and allocate."""
+        """
+        Keep track of school district portion and allocate.
 
-        MAX_DISTRICT_AMOUNT = 120e6
+        Strategy:
+        - Start in September
+        - Collections get split 50/50, until District hits cap
+        - City gets 100% of remaining months, until new fiscal year
+        """
         cnt = 0
         out = []
 
         months = [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8]
         for month in months:
 
+            # Get data for this month
             row = grp.query(f"month == {month}").copy()
             if len(row):
 
+                # Sum up total
                 total = row["total"].sum()
                 school_district_fraction = 0.0
 
@@ -64,7 +93,16 @@ def _get_city_sales_only(df):
 
 
 def get_city_sales_only(X):
-    """"""
+    """
+    Return a data frame that only includes the City portion of the
+    sales tax.
+
+    School District receives 50% of monthly collections until the
+    cap ($120M) is reached.
+
+    This gives the City sales data a strong seasonality, with peaks
+    in the summer months.
+    """
 
     # Set up
     R = X.copy()

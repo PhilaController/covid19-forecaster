@@ -13,8 +13,8 @@ class NPTForecast(DefaultForecaster, RevenueForecast):
     """Net profits tax revenue forecast."""
 
     ASSUMPTIONS = {
-        "moderate": [0.1, 0.4, 0.0, -0.02, -0.02, -0.05],
-        "severe": [0.4, 0.5, 0.02, 0.02, 0.02, 0.03],
+        "moderate": [0.4, 0.4, 0.0, -0.02, -0.02, -0.05],
+        "severe": [0.6, 0.6, 0.02, 0.02, 0.02, 0.03],
     }
 
     def __init__(self, fresh=False):

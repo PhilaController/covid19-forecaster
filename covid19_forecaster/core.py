@@ -123,6 +123,18 @@ class RevenueForecast(ABC):
         """The total actuals"""
         return self.baseline.actual_total_revenue_
 
+    @property
+    def actuals(self):
+        """The actuals"""
+        actuals = self.baseline.actual_revenue_.squeeze()
+        return actuals
+
+    @property
+    def baseline_(self):
+        """The baseline"""
+        baseline = self.baseline.forecasted_revenue_["total"]
+        return baseline.loc[: self.forecast_stop]
+
     def run_forecast(self, scenario):
         """Run the forecast for the specified scenario."""
         # ---------------------------------------------------------------------
@@ -259,6 +271,34 @@ class RevenueForecast(ABC):
 
             return fig, ax
 
+    def summarize(self, include_sectors=False):
+        """Summarize."""
+
+        out = []
+        labels = ["baseline", "actual", "forecast"]
+        for i, df in enumerate([self.baseline_, self.actuals, self.forecast_]):
+
+            if not self.has_sectors:
+                df = df.to_frame(name="Total")
+
+            B = df.T.copy()
+
+            if self.has_sectors:
+                B.loc["Total"] = B.sum(axis=0)
+            B.index = pd.MultiIndex.from_product([[labels[i]], B.index])
+
+            out.append(B)
+
+        X = pd.concat(out, axis=0).swaplevel()
+        if self.has_sectors:
+            cols = self.actuals.columns.tolist() + ["Total"]
+            X = X.loc[cols]
+        #
+        if not include_sectors:
+            X = X.loc[["Total"]]
+
+        return X
+
 
 class ScenarioForecast:
     """A collection of revenue forecasts for a specific scenario."""
@@ -285,7 +325,7 @@ class ScenarioForecast:
     def __iter__(self):
         yield from self.taxes
 
-    def summarize(self):
+    def summarize(self, include_sectors=False):
         """
         Summarize the scenario by providing actual, baseline,
         and forecast values for each tax.
@@ -297,23 +337,37 @@ class ScenarioForecast:
             # Get the tax name
             tax = self[tax_name]
 
-            # Get the actuals, baseline and forecast
-            out.append(tax.total_actuals.rename((tax_name, "actual")))
-            out.append(tax.total_baseline.rename((tax_name, "baseline")))
-            out.append(tax.total_forecast.rename((tax_name, "forecast")))
+            # Summarize it
+            summary = tax.summarize(include_sectors=include_sectors)
+            if not include_sectors:
+
+                # Rename to include tax
+                summary = summary.loc[["Total"]].rename(
+                    index={"Total": tax.tax_name}, level=0
+                )
+                summary = summary.rename_axis(("tax", "kind"))
+
+            else:
+                summary = pd.concat({tax.tax_name: summary}, names=["tax"])
+                summary = summary.rename_axis(("tax", "sector", "kind"))
+
+            out.append(summary)
 
         # Combine and do the transpose
         # Date is now on column axis with taxes on row axis
-        out = pd.concat(out, axis=1).T
+        out = pd.concat(out, axis=0)
 
         # Add a "total" column
         for col in ["actual", "baseline", "forecast"]:
-            subset = out.xs(col, axis=0, level=1)
+            subset = out.xs(col, axis=0, level=-1)
 
             total = subset.sum()
-            out.loc[("total", col), :] = total.replace(0, np.nan)
+            if include_sectors:
+                out.loc[("total", "Total", col), :] = total.replace(0, np.nan)
+            else:
+                out.loc[("total", col), :] = total.replace(0, np.nan)
 
-        return out.rename_axis(("tax", "kind"))
+        return out
 
 
 @dataclass

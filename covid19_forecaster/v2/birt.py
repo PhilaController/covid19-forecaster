@@ -13,8 +13,8 @@ class BIRTForecast(RevenueForecast):
     """BIRT revenue forecast."""
 
     ASSUMPTIONS = {
-        "moderate": {2020: 0.0, 2021: 0.1, 2022: 0.0},
-        "severe": {2020: 0.0, 2021: 0.15, 2022: 0.03},
+        "moderate": {2020: 0.0, 2021: 0.07, 2022: -0.05},
+        "severe": {2020: 0.0, 2021: 0.15, 2022: 0.0},
     }
 
     def __init__(self, fresh=False):
