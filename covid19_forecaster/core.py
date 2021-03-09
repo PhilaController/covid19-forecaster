@@ -56,6 +56,8 @@ class RevenueForecast(ABC):
     fit_kwargs: Optional[dict] = field(default_factory=dict)
     agg_after_fitting: Optional[bool] = False
     flat_growth: Optional[bool] = False
+    calibrate_to_budget: Optional[bool] = False
+    city_sales_only: Optional[bool] = False
 
     def __post_init__(self):
 
@@ -72,6 +74,8 @@ class RevenueForecast(ABC):
             sector_crosswalk=self.sector_crosswalk,
             agg_after_fitting=self.agg_after_fitting,
             flat_growth=self.flat_growth,
+            calibrate_to_budget=self.calibrate_to_budget,
+            city_sales_only=self.city_sales_only,
         )
 
         # Create forecast dates index
@@ -480,12 +484,10 @@ class ScenarioComparison:
             freq = df.index.inferred_freq
 
             if freq[0] != "Q" and quarterly:
-                grouped = df.T.groupby(pd.Grouper(freq="QS"))
-                sel = grouped.size() != 3
-
-                # Sum and set nans
-                df = grouped.sum()
-                df.loc[sel] = np.nan
+                grouped = df.groupby(pd.Grouper(freq="QS"))
+                df = grouped.sum(
+                    min_count=3
+                )  # Make sure we have 3 months per quarter
 
             # Save
             out += func(i, df.T, name)

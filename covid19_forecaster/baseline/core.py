@@ -13,6 +13,7 @@ from ..utils import aggregate_to_quarters, get_unique_id
 from .sales import get_city_sales_only
 from .transformers import (
     BaselineForecaster,
+    CalibrateToBudget,
     DisaggregateCollectionsBySector,
     RevenueToTaxBase,
 )
@@ -82,6 +83,7 @@ class cached_baseline:
 
             # Save
             out.to_csv(path)
+            baseline.fresh = False
         else:
             # Load from disk
             out = self.load_from_cache(baseline)
@@ -175,6 +177,7 @@ class BaselineForecast:
     agg_after_fitting: Optional[bool] = False
     flat_growth: Optional[bool] = False
     city_sales_only: Optional[bool] = False
+    calibrate_to_budget: Optional[bool] = False
 
     def __post_init__(self):
 
@@ -246,10 +249,25 @@ class BaselineForecast:
         # -----------------------------------------------------------------
         self.pipeline = Pipeline(self.steps.items())
 
+        # Initialize the budget calibrator
+        self.budget_calibrator = None
+        if self.calibrate_to_budget:
+
+            # Get the forecasted revenue
+            X = self.pipeline.fit_transform(self.actuals_raw)
+
+            # Fit the calibrator
+            self.budget_calibrator = CalibrateToBudget(self.tax_name).fit(X)
+
     @cached_property
     def forecasted_revenue_(self):
         """The predicted revenue forecast."""
-        return self.pipeline.fit_transform(self.actuals_raw)
+        X = self.pipeline.fit_transform(self.actuals_raw)
+
+        if self.calibrate_to_budget:
+            X = self.budget_calibrator.transform(X)
+
+        return X
 
     @cached_property
     def forecasted_tax_base_(self):
@@ -295,6 +313,9 @@ class BaselineForecast:
         for (name, step) in self.pipeline.steps:
             if name not in skip:
                 X = step.fit_transform(X)
+
+        if self.calibrate_to_budget:
+            X = self.budget_calibrator.transform(X)
 
         return X
 

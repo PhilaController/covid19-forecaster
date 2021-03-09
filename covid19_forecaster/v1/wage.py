@@ -143,4 +143,5 @@ class WageTaxForecast(RevenueForecast):
             baseline_stop=BASELINE_STOP,
             fresh=fresh,
             fit_kwargs={"seasonality_mode": "multiplicative"},
+            calibrate_to_budget=False,
         )

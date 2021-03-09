@@ -27,6 +27,7 @@ class BIRTForecast(RevenueForecast):
             fresh=fresh,
             ignore_sectors=True,
             fit_kwargs={"seasonality_mode": "additive"},
+            calibrate_to_budget=False,
         )
 
     def get_forecasted_decline(self, date, baseline, scenario):
