@@ -34,5 +34,4 @@ class RealtyTransferTaxForecast(DefaultForecaster, RevenueForecast):
             fresh=fresh,
             ignore_sectors=True,
             fit_kwargs={"seasonality_mode": "multiplicative"},
-            calibrate_to_budget=False,
         )

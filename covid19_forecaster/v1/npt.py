@@ -26,7 +26,6 @@ class NPTForecast(RevenueForecast):
             baseline_stop=BASELINE_STOP,
             fresh=fresh,
             fit_kwargs={"seasonality_mode": "additive"},
-            calibrate_to_budget=False,
         )
 
     def get_forecasted_decline(self, date, baseline, scenario):

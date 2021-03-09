@@ -45,6 +45,5 @@ class SalesTaxForecast(SectorForecaster, RevenueForecast):
             fresh=fresh,
             ignore_sectors=False,
             fit_kwargs={"seasonality_mode": "multiplicative"},
-            calibrate_to_budget=False,
             city_sales_only=True,
         )

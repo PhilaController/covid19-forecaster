@@ -56,7 +56,6 @@ class RevenueForecast(ABC):
     fit_kwargs: Optional[dict] = field(default_factory=dict)
     agg_after_fitting: Optional[bool] = False
     flat_growth: Optional[bool] = False
-    calibrate_to_budget: Optional[bool] = False
     city_sales_only: Optional[bool] = False
 
     def __post_init__(self):
@@ -74,7 +73,6 @@ class RevenueForecast(ABC):
             sector_crosswalk=self.sector_crosswalk,
             agg_after_fitting=self.agg_after_fitting,
             flat_growth=self.flat_growth,
-            calibrate_to_budget=self.calibrate_to_budget,
             city_sales_only=self.city_sales_only,
         )
 

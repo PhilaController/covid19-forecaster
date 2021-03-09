@@ -14,7 +14,6 @@ from sklearn.base import TransformerMixin
 
 from .. import io
 from ..utils import get_fiscal_year
-from .fyp import FY20_BUDGET
 
 
 @dataclass
@@ -133,105 +132,6 @@ class BaselineForecaster(TransformerMixin):
             out.append(forecast)
 
         return pd.concat(out, axis=1)
-
-
-@dataclass
-class CalibrateToBudget(TransformerMixin):
-    """Calibrate revenues to FY20 budget data."""
-
-    tax_name: str
-
-    def __post_init__(self):
-
-        self.rates = None
-        try:
-            self.rates = io.load_tax_rates(self.tax_name)
-        except:
-            self.rates = None
-
-    def fit(self, X, y=None):
-        """Fit the data."""
-
-        raw_forecast = X.copy()
-        raw_forecast.index = pd.Index(
-            [get_fiscal_year(dt) for dt in X.index], name="fiscal_year"
-        )
-
-        # Rescale by growth rates (if we have them)
-        if self.tax_name in FY20_BUDGET.growth_rates:
-
-            # Get tax base growth rates
-            growth_rates = self.get_forecasted_growth_rates(raw_forecast)
-
-            # Rescale based on growth
-            correction_factors = (
-                (1 + FY20_BUDGET.growth_rates[self.tax_name])
-                / (1 + growth_rates)
-            ).dropna()
-
-        # No rescaling necessary
-        else:
-
-            correction_factors = pd.DataFrame(
-                {
-                    "fiscal_year": [2020, 2021, 2022, 2023, 2024, 2025],
-                    "growth_rate": np.ones(6),
-                }
-            ).set_index("fiscal_year")["growth_rate"]
-
-        # Rescale FY20 by FYP revenue
-        fy20_revenue = raw_forecast.loc[2020, "total"].sum()
-        if X.columns.nlevels > 1:
-            fy20_revenue = fy20_revenue.sum()
-
-        correction_factors.loc[2020] = (
-            FY20_BUDGET.revenues[self.tax_name] / fy20_revenue
-        )
-
-        # Take cumulative product
-        self.correction_factors_ = correction_factors.sort_index().cumprod()
-
-        return self
-
-    def get_forecasted_growth_rates(self, forecast):
-        """
-        Calculate the tax base growth rates from the forecasted
-        revenues.
-        Parameters
-        ----------
-        tax_name : str
-            the name of the tax (to load the rates)
-        forecast : DataFrame
-            the revenue forecast
-        """
-        X = forecast.copy()["total"]
-        N = X.groupby("fiscal_year").sum().sort_index()
-        if not isinstance(N, pd.Series):
-            N = N.sum(axis=1)
-        if self.rates is not None:
-            N /= self.rates.loc[N.index, "rate"].values
-
-        return N.diff() / N.shift()
-
-    def transform(self, X):
-        """
-        Calibrate the revenue forecast to match the projections in
-        the forecasted FY21 - FY25 Five Year Plan.
-        """
-
-        raw_forecast = X.copy()
-        raw_forecast.index = pd.Index(
-            [get_fiscal_year(dt) for dt in X.index], name="fiscal_year"
-        )
-
-        # Calibrate!
-        calibrated = raw_forecast.copy()
-        for fy, row in calibrated.iterrows():
-            if fy in self.correction_factors_.index:
-                row *= self.correction_factors_.loc[fy]
-
-        calibrated.index = X.index
-        return calibrated
 
 
 @dataclass
