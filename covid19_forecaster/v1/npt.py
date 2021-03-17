@@ -28,7 +28,7 @@ class NPTForecast(RevenueForecast):
             fit_kwargs={"seasonality_mode": "additive"},
         )
 
-    def get_forecasted_decline(self, date, baseline, scenario):
+    def get_forecast_value(self, date, baseline, scenario):
         """Return the forecasted decline."""
 
         assert scenario in ["moderate", "severe"]
