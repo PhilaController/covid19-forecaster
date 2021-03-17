@@ -101,6 +101,7 @@ class cached_baseline:
             "fit_start_date",
             "fit_stop_date",
             "agg_after_fitting",
+            "flat_growth",
         ]:
             d[key] = getattr(baseline, key)
 
