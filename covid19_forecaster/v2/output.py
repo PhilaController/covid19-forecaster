@@ -72,13 +72,13 @@ def save_scenario_results(
     # ---------------------------------------------------
     # Calculation #1: Get the normalized declines
     # ---------------------------------------------------
-    declines = scenarios.get_normalized_comparison()
+    declines = scenarios.get_normalized_summary()
     declines = declines.T.loc["2020":].T
 
     # ---------------------------------------------------
     # Calculation #2: Get the FY totals declines
     # ---------------------------------------------------
-    r = scenarios.get_scenario_comparison(start_date="07-01-2014").T
+    r = scenarios.get_summary(start_date="07-01-2014").T
     moderate_fy_totals, severe_fy_totals = get_scenarios_with_actuals(
         r, by_fiscal_year=True
     )
@@ -157,7 +157,8 @@ def save_model_outputs(scenarios: ScenarioComparison, path: Union[str, Path]):
             # Save Actuals and Baseline
             if i == 0:
 
-                b = tax.baseline
+                # The baseline forecast
+                b = tax.baseline_forecast
 
                 # Actuals
                 b.actual_revenue_.to_csv(
