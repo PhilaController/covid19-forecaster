@@ -27,7 +27,7 @@ class DefaultForecaster:
 
     ASSUMPTIONS = None
 
-    def get_forecasted_decline(self, date, baseline, scenario):
+    def get_forecast_value(self, date, baseline, scenario):
         """
         For a given scenario (and optionally sector), return the revenue
         decline from the baseline forecast for the specific date.
@@ -71,7 +71,7 @@ class NoBaselineForecasterBySector:
 
     ASSUMPTIONS = None
 
-    def get_forecasted_decline(self, date, baseline, scenario):
+    def get_forecast_value(self, date, baseline, scenario):
         """
         For a given scenario (and optionally sector), return the revenue
         decline from the baseline forecast for the specific date.
@@ -120,7 +120,7 @@ class SectorForecaster:
     GROUPS = None
     ASSUMPTIONS = None
 
-    def get_forecasted_decline(self, date, baseline, scenario):
+    def get_forecast_value(self, date, baseline, scenario):
         """
         For a given scenario (and optionally sector), return the revenue
         decline from the baseline forecast for the specific date.
