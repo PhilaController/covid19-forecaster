@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -18,10 +18,12 @@ class RevenueForecast(ABC):
     forecasts for individual taxes.
 
     The forecast is composed of:
-        - A smooth, pre-COVID baseline forecast that captures
-        seasonality (computed using Prophet)
-        - A post-COVID forecast parameterized as a decline
-        from this baseline.
+
+    1. A smooth, pre-COVID baseline forecast that captures
+    seasonality (computed using Prophet)
+    2. A post-COVID forecast parameterized as a function of the
+    baseline; in the simplest case, this forecast is a decline
+    from the baseline.
 
     Parameters
     ----------
@@ -33,21 +35,35 @@ class RevenueForecast(ABC):
         the stop date for the predicted forecast
     freq : {'M', 'Q'}
         the frequency of the forecast, either monthly or quarterly
-    ignore_sectors :
+    baseline_start : optional
+        the start date to fit the baseline
+    baseline_stop : optional
+        the stop date to fit the baseline; default is just before COVID pandemic
+    ignore_sectors : optional
         whether to include sectors in the forecast
-    use_subsectors :
+    use_subsectors : optional
         whether to include subsectors when forecasting
-    fresh :
+    sector_crosswalk : optional
+        a cross walk to re-align sectors
+    fresh : optional
         if True, calculate a fresh baseline fit
-    fit_kwargs :
+    fit_kwargs : optional
         additional parameters to pass
+    agg_after_fitting : optional
+        whether to aggregate to the desired frequency before or
+        after fitting the baseline
+    flat_growth : optional
+        whether to assume a flat baseline forecast beyond the baseline
+        fitting period
+    city_sales_only : optional
+        whether to transform sales tax data to model only City revenue
     """
 
     tax_name: str
     forecast_start: str
     forecast_stop: str
     freq: str
-    baseline_start: str = "2014-07-01"
+    baseline_start: str = "2013-07-01"
     baseline_stop: str = "2020-03-31"
     ignore_sectors: Optional[bool] = False
     use_subsectors: Optional[bool] = False
@@ -60,8 +76,8 @@ class RevenueForecast(ABC):
 
     def __post_init__(self):
 
-        # Initialize the baseline forecast
-        self.baseline = BaselineForecast(
+        # Initialize the baseline forecaster
+        self.baseline_forecast = BaselineForecast(
             tax_name=self.tax_name,
             freq=self.freq,
             fit_start_date=self.baseline_start,
@@ -77,12 +93,13 @@ class RevenueForecast(ABC):
         )
 
         # Create forecast dates index
-        freq = self.baseline.inferred_freq
+        freq = self.baseline_forecast.inferred_freq
         self.forecast_dates = pd.date_range(
             self.forecast_start, self.forecast_stop, freq=freq
         )
 
     def __repr__(self):
+        """Improved representation."""
 
         name = self.__class__.__name__
         return (
@@ -92,26 +109,37 @@ class RevenueForecast(ABC):
         )
 
     @property
-    def actuals_raw(self):
-        """The actual revenue collection data."""
-        return self.baseline.actuals_raw
-
-    @property
-    def has_sectors(self):
+    def has_sectors(self) -> bool:
         """Whether the forecast uses sector-based data."""
-        return self.baseline.has_sectors
+        return self.baseline_forecast.has_sectors
 
     @property
-    def total_baseline(self):
-        """The total baseline, summed over any sectors."""
+    def actuals_raw(self) -> pd.DataFrame:
+        """
+        The  actual revenue collection (raw) data.
 
-        baseline = self.baseline.forecasted_total_revenue_
+        Note: this is in tidy format.
+        """
+        return self.baseline_forecast.actuals_raw
+
+    @property
+    def total_baseline(self) -> pd.Series:
+        """
+        The total baseline, summed over any sectors.
+
+        Note: This is a pandas Series indexed by date.
+        """
+        baseline = self.baseline_forecast.forecasted_total_revenue_
         return baseline.loc[: self.forecast_stop]
 
     @property
-    def total_forecast(self):
-        """The total forecast, summed over any sectors"""
+    def total_forecast(self) -> pd.Series:
+        """
+        The total forecast, summed over any sectors. For dates prior
+        to the forecast period, the forecast is equal to the baseline.
 
+        Note: This is a pandas Series indexed by date.
+        """
         assert hasattr(self, "forecast_"), "Please call run_forecast() first"
 
         forecast = self.forecast_
@@ -121,31 +149,67 @@ class RevenueForecast(ABC):
         return forecast.loc[: self.forecast_stop]
 
     @property
-    def total_actuals(self):
-        """The total actuals"""
-        return self.baseline.actual_total_revenue_
+    def total_actuals(self) -> pd.Series:
+        """
+        The total actuals, summed over any sectors.
+
+        Note: This is a pandas Series indexed by date.
+        """
+        return self.baseline_forecast.actual_total_revenue_
 
     @property
-    def actuals(self):
-        """The actuals"""
-        actuals = self.baseline.actual_revenue_.squeeze()
+    def actuals(self) -> pd.DataFrame:
+        """
+        The actuals revenue collections.
+
+        Note: Columns are sectors (if using) or a single column 'Total'
+        """
+        actuals = self.baseline_forecast.actual_revenue_
+        if not self.has_sectors:
+            actuals = actuals.rename(columns={"total": "Total"})
+
         return actuals
 
     @property
-    def baseline_(self):
-        """The baseline"""
-        baseline = self.baseline.forecasted_revenue_["total"]
-        return baseline.loc[: self.forecast_stop]
+    def baseline(self) -> pd.DataFrame:
+        """
+        The baseline forecast.
 
-    def run_forecast(self, scenario):
-        """Run the forecast for the specified scenario."""
+        Note: Columns are sectors (if using) or a single column 'Total'
+        """
+        # Get the baseline revenue forecast
+        baseline = self.baseline_forecast.forecasted_revenue_["total"]
+        baseline = baseline.loc[: self.forecast_stop]
+
+        if not self.has_sectors:
+            baseline = baseline.to_frame(name="Total")
+
+        return baseline
+
+    def run_forecast(self, scenario: str) -> pd.DataFrame:
+        """
+        Run the forecast for the specified scenario.
+
+        Note: this must be called before the "forecast_" attribute is calculated.
+
+        Parameters
+        ----------
+        scenario :
+            the name of the scenario to run
+
+        Returns
+        -------
+        forecast_ :
+            the predicted revenue forecast
+        """
+        # Set up the forecast period
+        start = self.forecast_start
+        stop = self.forecast_stop
+
         # ---------------------------------------------------------------------
         # STEP 1: Start from the baseline forecast over the forecast period
         # ---------------------------------------------------------------------
-        start = self.forecast_start
-        stop = self.forecast_stop
-        self.forecast_ = self.baseline.forecasted_revenue_["total"].copy()
-        self.forecast_ = self.forecast_.loc[:stop]
+        self.forecast_ = self.baseline.copy()
 
         # ---------------------------------------------------------------------
         # STEP 2: Iterate over each time step and apply the reduction
@@ -153,38 +217,241 @@ class RevenueForecast(ABC):
         for date in self.forecast_.loc[start:stop].index:
 
             # This is the baseline
-            baseline = self.forecast_.loc[date]
+            # Either a value or a Series for each sector
+            baseline = self.baseline.loc[date].squeeze()
 
             # Get the forecasted change
-            self.forecast_.loc[date] = self.get_forecasted_decline(
+            forecast_value = self.get_forecast_value(
                 date, baseline, scenario=scenario
             )
 
+            # Save
+            self.forecast_.loc[date, :] = forecast_value
+
+        # Return the forecast
         return self.forecast_
 
     @abstractmethod
-    def get_forecasted_decline(self, date, baseline, scenario):
+    def get_forecast_value(
+        self,
+        date: pd.Timestamp,
+        baseline: Union[float, pd.Series],
+        scenario: str,
+    ) -> Union[float, pd.Series]:
         """
-        For a given scenario, return the revenue
-        decline from the baseline forecast for the specific date.
+        For a given scenario, return the revenue forecast for the
+        specific date and the specific scenario.
+
+        Note: this is abstract — subclasses must define this function!
+
+        Parameters
+        ----------
+        date :
+            the date for the forecast
+        baseline :
+            the baseline forecast for the specified date
+        scenario :
+            the scenario to forecast
         """
         pass
 
-    def plot(self, normalized=False, month_to_quarters=False):
+    def get_summary(
+        self,
+        include_sectors: bool = False,
+        quarterly: bool = False,
+        start_date: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Summarize the current forecast, returning the actuals,
+        forecast, and baseline.
+
+        Note: you must call `run_forecast()` before this.
+
+        Parameters
+        ----------
+        include_sectors :
+            whether to include sectors
+        quarterly :
+            if data is monthly, whether to summarize in quarters
+        start_date :
+            Only include data from this date forward in the summary
+
+        Returns
+        -------
+        summary :
+            Dataframe indexed by sector and kind, where kind includes
+            "actual", "forecast" and "baseline". Columns are dates.
+        """
+        assert hasattr(self, "forecast_"), "Please call run_forecast() first"
+
+        out = []
+        labels = ["baseline", "actual", "forecast"]
+        for i, df in enumerate([self.baseline, self.actuals, self.forecast_]):
+
+            # Get the data frame with date along column axis
+            B = df.T.copy()
+
+            # Add a "Total" row
+            if self.has_sectors:
+                B.loc["Total"] = B.sum(axis=0)
+
+            # Prepend a level to the index
+            B = pd.concat({labels[i]: B}, names=["sector"])
+            out.append(B)
+
+        # Combine and make sure index is (tax, kind)
+        X = pd.concat(out, axis=0).swaplevel()
+
+        # Re-order the tax indices
+        if self.has_sectors:
+            cols = self.actuals.columns.tolist() + ["Total"]
+            X = X.loc[cols]
+
+        # Just return the "Total"
+        if not include_sectors:
+            X = X.loc[["Total"]]
+
+        # Summarize to quarters?
+        if self.freq == "M" and quarterly:
+
+            # Put date on row axis
+            X = X.T
+
+            # Set sum to Nan if not 3 months per quarter
+            X = X.groupby(pd.Grouper(freq="QS")).sum(min_count=3)
+
+            # Date on column axis
+            X = X.T
+
+        # Trim by start date
+        if start_date is not None:
+            X = X.T.loc[start_date:].T
+
+        return X.rename_axis(("sector", "kind"))
+
+    def get_normalized_summary(
+        self, include_sectors=False, quarterly=False, start_date=None
+    ) -> pd.DataFrame:
+        """
+        Return the actuals & forecast normalized by the baseline.
+
+        Note: you must call `run_forecast()` before this.
+
+        Parameters
+        ----------
+        include_sectors :
+            whether to include sectors
+        quarterly :
+            if data is monthly, whether to summarize in quarters
+        start_date :
+            Only include data from this date forward in the summary
+
+        Returns
+        -------
+        summary :
+            Dataframe indexed by sector and kind, where kind includes
+            "actual" and "forecast". Columns are dates.
+        """
+        # Get the summary
+        S = self.get_summary(
+            include_sectors=include_sectors,
+            quarterly=quarterly,
+            start_date=start_date,
+        )
+
+        # Get the baseline
+        baseline = S.xs("baseline", axis=0, level=-1)
+
+        # Create a copy to return and remove baseline
+        out = S.copy().drop("baseline", level=-1)
+        for name in ["forecast", "actual"]:
+
+            # Normalize the actuals/forecast
+            F = S.xs(name, axis=0, level=-1)
+            F = F / baseline
+
+            # Set it!
+            out.loc[pd.IndexSlice[:, name], :] = F.values
+
+        return out
+
+    def get_baseline_differences(
+        self,
+        cumulative: bool = True,
+        include_sectors: bool = False,
+        quarterly: bool = False,
+        start_date: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Return the differences between the baseline and actuals/forecast.
+
+        Note: you must call `run_forecast()` before this.
+
+        Parameters
+        ----------
+        cumulative :
+            whether to return cumulative difference since the specified start date
+        include_sectors :
+            whether to include sectors
+        quarterly :
+            if data is monthly, whether to summarize in quarters
+        start_date :
+            Only include data from this date forward in the summary
+
+        Returns
+        -------
+        summary :
+            Dataframe indexed by sector and kind, where kind includes
+            "actual" and "forecast". Columns are dates.
+        """
+        # Get the summary
+        S = self.get_summary(
+            include_sectors=include_sectors,
+            quarterly=quarterly,
+            start_date=start_date,
+        )
+
+        # Get the baseline
+        baseline = S.xs("baseline", axis=0, level=-1)
+
+        # Create a copy to return and remove baseline
+        out = S.copy().drop("baseline", level=-1)
+        for name in ["forecast", "actual"]:
+
+            # Get the differences
+            F = S.xs(name, axis=0, level=-1)
+            F = F - baseline
+            if cumulative:
+                F = F.cumsum(axis=1)
+
+            # Set it!
+            out.loc[pd.IndexSlice[:, name], :] = F.values
+
+        return out
+
+    def plot(self, normalized=False, month_to_quarters=False, start_date=None):
         """
         Plot the baseline and scenario forecasts, as well as the
         historical data points.
+
+        Parameters
+        ----------
+        normalized :
+            normalize the forecast by the baseline
+        month_to_quarters :
+            whether to aggregate monthly data to quarters before plotting
+        start_date :
+            Only include data from this date forward in the summary
         """
+        # Summarize
+        S = self.get_summary(
+            quarterly=month_to_quarters, start_date=start_date
+        ).loc["Total"]
 
-        def to_quarters(df):
-            if not month_to_quarters:
-                return df
-            else:
-                return df.groupby(pd.Grouper(freq="QS")).sum()
-
-        baseline = to_quarters(self.total_baseline)
-        forecast = to_quarters(self.total_forecast)
-        actuals = to_quarters(self.total_actuals)
+        # Get the components
+        baseline = S.loc["baseline"]
+        forecast = S.loc["forecast"]
+        actuals = S.loc["actual"]
 
         # Load the palettes
         palette = get_digital_standards()
@@ -205,6 +472,7 @@ class RevenueForecast(ABC):
                     zorder=10,
                     legend=False,
                     label="Baseline",
+                    clip_on=False,
                 )
 
                 # Get the forecast, with one point previous to where it started
@@ -222,6 +490,7 @@ class RevenueForecast(ABC):
                     zorder=10,
                     legend=False,
                     label="Forecast",
+                    clip_on=False,
                 )
 
                 # Plot the actuals scatter
@@ -233,6 +502,7 @@ class RevenueForecast(ABC):
                     color=palette["love-park-red"],
                     zorder=11,
                     label="Actuals",
+                    clip_on=False,
                 )
 
             else:
@@ -247,6 +517,7 @@ class RevenueForecast(ABC):
                     zorder=10,
                     legend=False,
                     label="Forecast",
+                    clip_on=False,
                 )
 
                 # Plot the actuals scatter
@@ -259,6 +530,7 @@ class RevenueForecast(ABC):
                     color=palette["love-park-red"],
                     zorder=11,
                     label="Actuals",
+                    clip_on=False,
                 )
 
             # Format
@@ -273,40 +545,29 @@ class RevenueForecast(ABC):
 
             return fig, ax
 
-    def summarize(self, include_sectors=False):
-        """Summarize."""
-
-        out = []
-        labels = ["baseline", "actual", "forecast"]
-        for i, df in enumerate([self.baseline_, self.actuals, self.forecast_]):
-
-            if not self.has_sectors:
-                df = df.to_frame(name="Total")
-
-            B = df.T.copy()
-
-            if self.has_sectors:
-                B.loc["Total"] = B.sum(axis=0)
-            B.index = pd.MultiIndex.from_product([[labels[i]], B.index])
-
-            out.append(B)
-
-        X = pd.concat(out, axis=0).swaplevel()
-        if self.has_sectors:
-            cols = self.actuals.columns.tolist() + ["Total"]
-            X = X.loc[cols]
-        #
-        if not include_sectors:
-            X = X.loc[["Total"]]
-
-        return X
-
 
 class ScenarioForecast:
-    """A collection of revenue forecasts for a specific scenario."""
+    """
+    A collection of revenue forecasts for different taxes for a
+    specific scenario.
 
-    def __init__(self, *forecasts: RevenueForecast):
+    Parameters
+    ----------
+    *forecasts :
+        individual RevenueForecast objects for each tax forecast
+    scenario :
+        if provided, call `run_forecast(scenario)` for each of the input forecasts.
+    """
+
+    def __init__(self, *forecasts: RevenueForecast, scenario=None):
+
+        # Save the forecasts as a dict
         self.forecasts = {f.tax_name: f for f in forecasts}
+
+        # Run the specified forecast
+        if scenario is not None:
+            for name in self.forecasts:
+                self.forecasts[name].run_forecast(scenario)
 
     @property
     def taxes(self):
@@ -327,54 +588,189 @@ class ScenarioForecast:
     def __iter__(self):
         yield from self.taxes
 
-    def summarize(self, include_sectors=False):
-        """
-        Summarize the scenario by providing actual, baseline,
-        and forecast values for each tax.
-        """
+    def _get_report(
+        self,
+        func_name,
+        include_sectors=False,
+        quarterly=False,
+        start_date=None,
+        **kwargs,
+    ):
+        """Internal function to calculate a specific report."""
 
         out = []
         for tax_name in self:
 
-            # Get the tax name
+            # Get the tax object
             tax = self[tax_name]
 
-            # Summarize it
-            summary = tax.summarize(include_sectors=include_sectors)
-            if not include_sectors:
+            # Get the function
+            func = getattr(tax, func_name)
 
-                # Rename to include tax
-                summary = summary.loc[["Total"]].rename(
-                    index={"Total": tax.tax_name}, level=0
-                )
-                summary = summary.rename_axis(("tax", "kind"))
+            # Call it
+            summary = func(
+                include_sectors=include_sectors,
+                quarterly=quarterly,
+                start_date=start_date,
+                **kwargs,
+            )
 
-            else:
-                summary = pd.concat({tax.tax_name: summary}, names=["tax"])
-                summary = summary.rename_axis(("tax", "sector", "kind"))
+            # Rename the index level so it includes tax
+            summary = pd.concat({tax.tax_name: summary}, names=["tax"])
+            summary = summary.rename_axis(("tax", "sector", "kind"))
 
             out.append(summary)
 
-        # Combine and do the transpose
+        # Combine
         # Date is now on column axis with taxes on row axis
         out = pd.concat(out, axis=0)
 
-        # Add a "total" column
-        for col in ["actual", "baseline", "forecast"]:
-            subset = out.xs(col, axis=0, level=-1)
+        # Add a "all taxes" column
+        all_taxes = out.xs("Total", axis=0, level=1).sum(axis=0, level=-1)
+        for name in all_taxes.index:
+            out.loc[("all_taxes", "Total", name)] = all_taxes.loc[name]
 
-            total = subset.sum()
-            if include_sectors:
-                out.loc[("total", "Total", col), :] = total.replace(0, np.nan)
-            else:
-                out.loc[("total", col), :] = total.replace(0, np.nan)
+        # Re-order
+        out = out.loc[self.taxes + ["all_taxes"]]
+
+        # Return just the total
+        if not include_sectors:
+            out = out.xs("Total", axis=0, level=1)
 
         return out
+
+    def get_summary(
+        self,
+        include_sectors: bool = False,
+        quarterly: bool = False,
+        start_date: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Summarize the scenario by providing actual, baseline,
+        and forecast values for each tax.
+
+        Note: you must call `run_forecast()` before this.
+
+        Parameters
+        ----------
+        include_sectors :
+            whether to include sectors
+        quarterly :
+            if data is monthly, whether to summarize in quarters
+        start_date :
+            Only include data from this date forward in the summary
+
+        Returns
+        -------
+        summary :
+            Dataframe indexed by tax, sector and kind, where kind includes
+            "actual", "forecast" and "baseline". Columns are dates.
+        """
+        return self._get_report(
+            "get_summary",
+            include_sectors=include_sectors,
+            quarterly=quarterly,
+            start_date=start_date,
+        )
+
+    def get_normalized_summary(
+        self, include_sectors=False, quarterly=False, start_date=None
+    ) -> pd.DataFrame:
+        """
+        Return the actuals & forecast normalized by the baseline.
+
+        Note: you must call `run_forecast()` before this.
+
+        Parameters
+        ----------
+        include_sectors :
+            whether to include sectors
+        quarterly :
+            if data is monthly, whether to summarize in quarters
+        start_date :
+            Only include data from this date forward in the summary
+
+        Returns
+        -------
+        summary :
+            Dataframe indexed by sector and kind, where kind includes
+            "actual" and "forecast". Columns are dates.
+        """
+        # Get the summary
+        S = self.get_summary(
+            include_sectors=include_sectors,
+            quarterly=quarterly,
+            start_date=start_date,
+        )
+
+        # Get the baseline
+        baseline = S.xs("baseline", axis=0, level=-1)
+
+        # Create a copy to return and remove baseline
+        out = S.copy().drop("baseline", level=-1)
+        for name in ["forecast", "actual"]:
+
+            # Normalize the actuals/forecast
+            F = S.xs(name, axis=0, level=-1)
+            F = F / baseline
+
+            # Set it!
+            if include_sectors:
+                idx = pd.IndexSlice[:, :, name]
+            else:
+                idx = pd.IndexSlice[:, name]
+            out.loc[idx, :] = F.values
+
+        return out
+
+    def get_baseline_differences(
+        self,
+        cumulative: bool = True,
+        include_sectors: bool = False,
+        quarterly: bool = False,
+        start_date: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Return the differences between the baseline and actuals/forecast.
+
+        Note: you must call `run_forecast()` before this.
+
+        Parameters
+        ----------
+        cumulative :
+            whether to return cumulative difference since the specified start date
+        include_sectors :
+            whether to include sectors
+        quarterly :
+            if data is monthly, whether to summarize in quarters
+        start_date :
+            Only include data from this date forward in the summary
+
+        Returns
+        -------
+        summary :
+            Dataframe indexed by sector and kind, where kind includes
+            "actual" and "forecast". Columns are dates.
+        """
+        return self._get_report(
+            "get_baseline_differences",
+            cumulative=cumulative,
+            include_sectors=include_sectors,
+            quarterly=quarterly,
+            start_date=start_date,
+        )
 
 
 @dataclass
 class ScenarioComparison:
-    """A class to facilitate comparisons of multiple scenario forecasts."""
+    """
+    A class to facilitate comparisons of multiple scenario forecasts.
+
+    Parameters
+    ----------
+    scenarios :
+        dict mapping scenario name to forecast
+    """
 
     scenarios: Dict[str, ScenarioForecast]
 
@@ -398,175 +794,151 @@ class ScenarioComparison:
             return self.scenarios[name]
         raise AttributeError(f"No such attribute '{name}'")
 
-    def save(self, path, start_date="2020"):
-        """Save the data to an excel file."""
-
-        with pd.ExcelWriter(path, engine="xlsxwriter") as writer:
-
-            # Save the raw scenario data
-            for name in self.scenarios:
-
-                # Get the tidy data
-                tidy_data = self.get_tidy_data(name)
-
-                # Save it
-                sheet_name = f"{name.capitalize()} Data"
-                tidy_data.to_excel(writer, sheet_name=sheet_name)
-
-                # The functions to run
-                funcs = [
-                    self.get_scenario_comparison,
-                    self.get_normalized_comparison,
-                    self.get_cumulative_diffs,
-                ]
-
-                sheets = [
-                    "Comparison",
-                    "Norm. Comparison",
-                    "Total Shortfalls",
-                ]
-                for f, sheet in zip(funcs, sheets):
-
-                    # Get the result
-                    df = f(start_date=start_date)
-
-                    freq = df.columns.inferred_freq
-                    if freq[0] == "M":
-                        suffix = " (Monthly)"
-                    else:
-                        suffix = " (Quarterly)"
-
-                    # Save
-                    df.to_excel(
-                        writer, sheet_name=sheet + suffix, merge_cells=False
-                    )
-
-                    # Do quarterly too
-                    if freq[0] == "M":
-                        df = f(start_date=start_date, quarterly=True)
-                        df.to_excel(
-                            writer,
-                            sheet_name=sheet + " (Quarterly)",
-                            merge_cells=False,
-                        )
-
-    def get_tidy_data(self, scenario):
-        """Raw data in tidy format."""
-
-        # Summarize the scenario
-        df = self.scenarios[scenario].summarize()
-
-        # Melt and return
-        return (
-            df.melt(ignore_index=False, value_name="total")
-            .reset_index()
-            .sort_values(["date", "tax"])
-        )
-
-    def _get_scenario_report(self, func, start_date="2020", quarterly=False):
+    def _get_report(
+        self,
+        func_name,
+        start_date=None,
+        quarterly=False,
+        include_sectors=False,
+        **kwargs,
+    ):
         """Internal function to get scenario report."""
 
         out = []
-        for i, name in enumerate(self.scenario_names):
+        for i, scenario in enumerate(self.scenario_names):
 
-            # Summarize the scenario
-            df = self.scenarios[name].summarize()
+            # This scenario
+            scenario_forecast = self.scenarios[scenario]
 
-            # Transpose so date is along index
-            df = df.T
+            # Get the function
+            func = getattr(scenario_forecast, func_name)
 
-            # Trim by date
-            df = df.loc[start_date:]
+            # Run the function
+            df = func(
+                include_sectors=include_sectors,
+                quarterly=quarterly,
+                start_date=start_date,
+                **kwargs,
+            )
 
-            # Check freq
-            freq = df.index.inferred_freq
+            # Rename the forecast
+            df = df.rename(index={"forecast": scenario})
 
-            if freq[0] != "Q" and quarterly:
-                grouped = df.groupby(pd.Grouper(freq="QS"))
-                df = grouped.sum(
-                    min_count=3
-                )  # Make sure we have 3 months per quarter
+            # Drop baseline if we need to
+            if "baseline" in df.index.get_level_values(-1):
+                df = df.drop("baseline", axis=0, level=-1)
 
-            # Save
-            out += func(i, df.T, name)
+            # Drop actual if not the first
+            if i > 0:
+                df = df.drop("actual", axis=0, level=-1)
+
+            out.append(df)
 
         # Combine
         out = pd.concat(out, axis=0).sort_index()
 
         # Return with "total" last
         i = out.index.get_level_values(0).unique()
-        return out.loc[i.drop("total").tolist() + ["total"]]
+        return out.loc[i.drop("all_taxes").tolist() + ["all_taxes"]]
 
-    def get_scenario_comparison(self, start_date="2020", quarterly=False):
-        """Return forecasts."""
+    def get_summary(
+        self,
+        include_sectors: bool = False,
+        quarterly: bool = False,
+        start_date: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Return a summary of the scenario forecasts.
 
-        def report(i, df, name):
+        Note: This includes actual and forecasts but not baseline.
 
-            # Drop baseline and actual if not first
-            if i == 0:
-                df = df.drop("baseline", axis=0, level=1)
-            else:
-                df = df.drop(["baseline", "actual"], axis=0, level=1)
+        Parameters
+        ----------
+        start_date :
+            Only include data from this date forward in the summary
+        include_sectors :
+            whether to include sectors
+        quarterly :
+            if data is monthly, whether to summarize in quarters
 
-            # Rename it and save
-            return [df.rename(index={"forecast": name})]
-
-        return self._get_scenario_report(
-            report, start_date=start_date, quarterly=quarterly
+        Returns
+        -------
+        summary :
+            Dataframe indexed by tax, sector and kind, where kind includes
+            "actual" and scenario names. Columns are dates.
+        """
+        return self._get_report(
+            "get_summary",
+            start_date=start_date,
+            quarterly=quarterly,
+            include_sectors=include_sectors,
         )
 
-    def get_cumulative_diffs(self, start_date="2020", quarterly=False):
-        """Return cumulative differences."""
+    def get_baseline_differences(
+        self,
+        cumulative: bool = True,
+        include_sectors: bool = False,
+        quarterly: bool = False,
+        start_date: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Return cumulative differences between forecast and baseline
+        since the specified start date.
 
-        def report(i, df, name):
+        Note: This includes differences between actual values and
+        baseline and forecasted values and baseline.
 
-            # initialize output
-            out = []
+        Parameters
+        ----------
+        start_date :
+            Only include data from this date forward in the summary
+        include_sectors :
+            whether to include sectors
+        quarterly :
+            if data is monthly, whether to summarize in quarters
 
-            # Get forecast and baseline
-            actuals = df.xs("actual", axis=0, level=1)
-            forecast = df.xs("forecast", axis=0, level=1)
-            baseline = df.xs("baseline", axis=0, level=1)
-
-            # Do the cumulative diff b/w forecast and baseline
-            x = (forecast - baseline).cumsum(axis=1)
-            x.index = pd.MultiIndex.from_product([x.index, [name]])
-            out.append(x)
-
-            # Add the diff b/w actuals and baseline
-            if i == 0:
-                x = (actuals.dropna(how="any", axis=1) - baseline).cumsum(
-                    axis=1
-                )
-                x.index = pd.MultiIndex.from_product([x.index, ["actual"]])
-                out.append(x)
-
-            return out
-
-        return self._get_scenario_report(
-            report, start_date=start_date, quarterly=quarterly
+        Returns
+        -------
+        diffs :
+            Dataframe indexed by tax, sector and kind, where kind includes
+            "actual" and scenario names. Columns are dates.
+        """
+        return self._get_report(
+            "get_baseline_differences",
+            cumulative=cumulative,
+            start_date=start_date,
+            quarterly=quarterly,
+            include_sectors=include_sectors,
         )
 
-    def get_normalized_comparison(self, start_date="2020", quarterly=False):
-        """Return cumulative differences."""
+    def get_normalized_summary(
+        self,
+        include_sectors: bool = False,
+        quarterly: bool = False,
+        start_date: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """
+        Return the actual and scenario forecasts normalized by
+        the baseline.
 
-        def report(i, df, name):
+        Parameters
+        ----------
+        start_date :
+            Only include data from this date forward in the summary
+        include_sectors :
+            whether to include sectors
+        quarterly :
+            if data is monthly, whether to summarize in quarters
 
-            # Baseline
-            baseline = df.xs("baseline", axis=0, level=1)
-
-            # Divide by the baseline
-            df = df.divide(baseline, axis=0, level=0).drop(
-                "baseline", level=1, axis=0
-            )
-
-            # Drop actuals
-            if i > 0:
-                df = df.drop(["actual"], axis=0, level=1)
-
-            # Rename it and save
-            return [df.rename(index={"forecast": name})]
-
-        return self._get_scenario_report(
-            report, start_date=start_date, quarterly=quarterly
+        Returns
+        -------
+        declines :
+            Dataframe indexed by tax, sector and kind, where kind includes
+            "actual" and scenario names. Columns are dates.
+        """
+        return self._get_report(
+            "get_normalized_summary",
+            start_date=start_date,
+            quarterly=quarterly,
+            include_sectors=include_sectors,
         )
