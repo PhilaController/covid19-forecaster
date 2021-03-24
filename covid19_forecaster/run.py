@@ -1,15 +1,17 @@
 import argparse
 import shutil
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 
+import click
 import openpyxl
 import pandas as pd
+from loguru import logger
 from matplotlib import pyplot as plt
 
-from .. import DATA_DIR
-from ..core import ScenarioComparison
-from ..utils import get_fiscal_year
+from . import DATA_DIR, v1, v2
+from .core import RevenueForecast, ScenarioComparison, ScenarioForecast
+from .utils import get_fiscal_year
 
 
 def groupby_fiscal_year(df):
@@ -125,6 +127,7 @@ def _ensure_data_frame(X):
 
 
 def save_model_outputs(scenarios: ScenarioComparison, path: Union[str, Path]):
+    """Save the model outputs."""
 
     if isinstance(path, str):
         path = Path(path)
@@ -188,3 +191,93 @@ def save_model_outputs(scenarios: ScenarioComparison, path: Union[str, Path]):
                     forecast_dir / f"{tax_name}-{scenario}-revenue.png"
                 )
                 plt.close()
+
+
+def run_scenarios(
+    taxes: List[RevenueForecast], fresh=False, scenarios=["moderate", "severe"]
+):
+    """Run the scenarios for the input taxes."""
+
+    results = {}
+
+    # Run all of the scenarios
+    for scenario in scenarios:
+        logger.info(f"Running scenario '{scenario}'")
+
+        forecasts = []
+        for cls in taxes:
+
+            # Initialize and log
+            tax = cls(fresh=fresh)
+            logger.info(f"   Running forecast for '{tax.tax_name}'")
+
+            # Run the forecast
+            tax.run_forecast(scenario)
+
+            # Save it
+            forecasts.append(tax)
+
+        # Save a scenario forecast object
+        results[scenario] = ScenarioForecast(*forecasts)
+
+    return ScenarioComparison(results)
+
+
+def run_and_save_scenarios(
+    taxes: List[RevenueForecast],
+    path: Union[str, Path],
+    fresh=False,
+    clean=False,
+    scenarios=["moderate", "severe"],
+):
+    """Run the scenarios and save the results."""
+
+    # Run
+    scenarios = run_scenarios(taxes, fresh=fresh, scenarios=scenarios)
+
+    # Make sure we have a Path object
+    if isinstance(path, str):
+        path = Path(path)
+
+    # Remove directory?
+    out_dir = path.parent
+    if out_dir.exists() and clean:
+        shutil.rmtree(out_dir)
+
+    # Make sure it exists
+    if not out_dir.exists():
+        out_dir.mkdir()
+
+    # Save the scenarios
+    save_scenario_results(scenarios, path)
+
+    # Save the model inputs
+    save_model_outputs(scenarios, out_dir)
+
+
+@click.command()
+@click.argument(
+    "output_dir", type=Path,
+)
+@click.option(
+    "--clean",
+    is_flag=True,
+    help="Whether to remove the output directory first.",
+)
+@click.option(
+    "--fresh",
+    is_flag=True,
+    help="Whether to create fresh baselines when modeling.",
+)
+def main(output_dir, clean=False, fresh=False):
+    """Run and save the March 2021 model forecast."""
+
+    # Get the config for version #2
+    taxes = v2.TAXES
+    scenarios = v2.SCENARIOS
+
+    # Run and save
+    path = output_dir / f"covid-budget-impact-{version}.xlsx"
+    run_and_save_scenarios(
+        taxes, path, fresh=fresh, clean=clean, scenarios=scenarios
+    )
